@@ -109,7 +109,7 @@ namespace {
         std::error_code ec;
         const fs::path statsDir = SteamDirFromSelf() / "appcache" / "stats";
         if (statsDir.empty() || !fs::exists(statsDir, ec)) {
-            Warn("BetterSteamTools", "Could not locate Steam's stats cache.");
+            Warn("Neko", "Could not locate Steam's stats cache.");
             return;
         }
 
@@ -153,7 +153,7 @@ void Redeem(const std::string& code) {
         if (!JsonString(r.body, "reason", reason) && !JsonString(r.body, "error", reason))
             reason = "Server error " + std::to_string(r.status);
         LOG_WARN("TokeerBridge: redeem failed (HTTP {}): {}", r.status, reason);
-        Warn("BetterSteamTools", "Redeem failed:\n\n" + reason);
+        Warn("Neko", "Redeem failed:\n\n" + reason);
         return;
     }
 
@@ -167,14 +167,14 @@ void Redeem(const std::string& code) {
     const auto etBytes = HexToBytes(etHex);
     if (!appId || !appBytes || appBytes->empty() || !etBytes || etBytes->empty()) {
         LOG_WARN("TokeerBridge: redeem returned an incomplete/invalid ticket");
-        Warn("BetterSteamTools", "The server returned an incomplete ticket.");
+        Warn("Neko", "The server returned an incomplete ticket.");
         return;
     }
 
     if (CS::WriteAppTicket(*appId, *appBytes) != CS::Status::Ok ||
         CS::WriteETicket(*appId, *etBytes) != CS::Status::Ok) {
         LOG_ERROR("TokeerBridge: failed to write tickets for app {}", *appId);
-        Warn("BetterSteamTools", "Could not write the ticket to Steam.");
+        Warn("Neko", "Could not write the ticket to Steam.");
         return;
     }
 
@@ -225,7 +225,7 @@ void HandleUri(const std::string& rawUrl) {
 
     if (action == "redeem") {
         if (!arg.empty()) Redeem(arg);
-        else Warn("BetterSteamTools", "Missing code in link.");
+        else Warn("Neko", "Missing code in link.");
     } else if (action == "refreshachievements") {
         RefreshAchievements(arg.empty() ? "all" : arg);
     } else {
@@ -251,7 +251,7 @@ void RegisterUriScheme(const std::string& dllPath) {
     };
 
     const bool ok =
-        writeKey("Software\\Classes\\bst", nullptr, "URL:BetterSteamTools") &&
+        writeKey("Software\\Classes\\bst", nullptr, "URL:Neko") &&
         writeKey("Software\\Classes\\bst", "URL Protocol", "") &&
         writeKey("Software\\Classes\\bst\\shell\\open\\command", nullptr, command);
 

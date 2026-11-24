@@ -91,7 +91,7 @@ Result Execute(const wchar_t* method,
 
     auto t0 = std::chrono::steady_clock::now();
 
-    HINTERNET hSession = WinHttpOpen(L"OpenSteamTool/1.0",
+    HINTERNET hSession = WinHttpOpen(L"Neko/1.0",
         WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
         WINHTTP_NO_PROXY_NAME,
         WINHTTP_NO_PROXY_BYPASS,

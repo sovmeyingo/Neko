@@ -1,5 +1,5 @@
-# opensteamtool.toml — OpenSteamTool configuration
-# Place at: <Steam>/opensteamtool.toml
+# Neko.toml — Neko configuration
+# Place at: <Steam>/Neko.toml
 # This file is loaded at startup and hot-reloaded after changes.
 
 [log]
@@ -9,7 +9,7 @@ level = "debug"
 
 [manifest]
 # Which upstream API to query for depot manifest request codes.
-#   "opensteamtool" → https://manifest.opensteamtool.com/{gid}   (default)
+#   "neko" → https://manifest.opensteamtool.com/{gid}   (default)
 #   "wudrm"         → http://gmrc.wudrm.com/manifest/{gid} (recommended for China users)
 #   "steamrun"      → https://manifest.steam.run/api/manifest/{gid}
 # If <Steam>/config/stplug-in/manifest.lua defines fetch_manifest_code(gid) or
@@ -44,7 +44,7 @@ level = "debug"
 #     end
 #     return nil
 # end
-url = "opensteamtool"
+url = "neko"
 
 # HTTP timeouts for manifest requests (milliseconds).
 # timeout_resolve_ms  — DNS resolution        (default: 5000)
@@ -78,13 +78,13 @@ enabled = true
 # max_mints_per_session = 0
 
 [stats]
-# Automatically query https://stats.luastools.xyz/{appid} for a recommended
+# Automatically query https://stats.opensteamtool.com/{appid} for a recommended
 # SteamID when no Lua setStat(appid, "steamid") override exists.
 # Priority: setStat > stats API when enabled and valid > hardcoded preset SteamID.
 enable_api = true
 
 [update]
-# Check for a newer BetterSteamTools build on startup. When a newer build is
+# Check for a newer build on startup. When a newer build is
 # found it is downloaded, verified (SHA-256) and staged next to Steam; the new
 # DLL loads on the next Steam launch. Set to false to disable the check entirely.
 enabled = true
@@ -102,7 +102,7 @@ enabled = true
 # when every condition it sets matches the launch.
 # Example:
 #   [[inject]]
-#   path = "OpenSteamToolHook.dll"      # bare name resolves next to steam.exe; absolute path used as-is
+#   path = "NekoHook.dll"      # bare name resolves next to steam.exe; absolute path used as-is
 #   when_cmdline = "-my_special_hook"   # optional: require this substring in the launch command (default: any)
 #   when_appids = [1361510]             # optional: restrict to these appids (default: any)
 #   all_games = false                   # optional: true injects into every game, false only into Lua-added games (default: false)
@@ -110,12 +110,12 @@ enabled = true
 [cloud]
 # Optional Steam Cloud save redirection for unlocked ("lua") games, powered by
 # CloudRedirect (https://github.com/Selectively11/CloudRedirect).
-# When enabled, OpenSteamTool loads cloud_redirect.dll inside Steam, registers
+# When enabled, Neko loads cloud_redirect.dll inside Steam, registers
 # every addappid() game as a redirected app, and routes their Steam Cloud RPCs
 # through CloudRedirect's cloud-save engine.
 #
 # Provider sign-in (Google Drive / OneDrive / local folder) is still done through
-# CloudRedirect's own companion app — OpenSteamTool only hosts the DLL.
+# CloudRedirect's own companion app — Neko only hosts the DLL.
 enabled = false
 # Path to cloud_redirect.dll. Absolute, or relative to the Steam root directory.
 # Defaults to "<Steam>/cloud_redirect.dll" when unset.

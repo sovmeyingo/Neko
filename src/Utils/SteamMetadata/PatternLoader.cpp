@@ -149,14 +149,14 @@ static void ShowDownloadFailedPopup(const std::string& dllName,
                                     const std::string& component)
 {
     SteamDiagnostics::ShowWarning(
-        "OpenSteamTool - Unsupported Steam Version",
-        "OpenSteamTool: signature file not found for " + dllName + ".\n\n"
+        "Neko - Unsupported Steam Version",
+        "Neko: signature file not found for " + dllName + ".\n\n"
         "Hooks that depend on " + dllName + " are disabled for this session; "
         "other modules are unaffected.\n\n"
         "You can:\n"
         "  1. Wait for the next signature update, then restart Steam.\n"
         "  2. Drop a matching TOML at:\n"
-        "       <Steam>\\opensteamtool\\pattern\\" + component + "\\" + sha256 + ".toml\n"
+        "       <Steam>\\Neko\\pattern\\" + component + "\\" + sha256 + ".toml\n"
         "  3. Check upstream:\n"
         "       https://github.com/madoiscool/steam-monitor/tree/pattern/" + component + "\n"
         "  4. Report the diagnostics below:\n"
@@ -279,8 +279,8 @@ void ReportMissingFunctions()
     g_missingFunctions.clear();
 
     SteamDiagnostics::ShowWarning(
-        "OpenSteamTool - Missing Signatures",
-        "OpenSteamTool: some functions could not be located.\n\n"
+        "Neko - Missing Signatures",
+        "Neko: some functions could not be located.\n\n"
         "The following functions were not found in the signature file:\n" +
         list +
         "\nHooks for these functions are disabled for this session.\n\n"

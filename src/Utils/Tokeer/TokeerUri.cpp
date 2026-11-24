@@ -1,6 +1,6 @@
 // rundll32 entry point for the bst:// URI scheme. Registered by
 // TokeerBridge::RegisterUriScheme as:
-//   rundll32.exe "<steam>\OpenSteamTool.dll",TokeerUri "%1"
+//   rundll32.exe "<steam>\Neko.dll",TokeerUri "%1"
 // When a browser opens a bst:// link, Windows launches this in a short-lived rundll32
 // process (NOT steam.exe), so the DLL's injection init never runs here — the bridge does
 // all its work standalone (registry credential store + HTTP + clipboard).

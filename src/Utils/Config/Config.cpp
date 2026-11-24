@@ -11,7 +11,7 @@ namespace Config {
 namespace {
 
     struct Snapshot {
-        std::string manifestProvider = "opensteamtool";
+        std::string manifestProvider = "neko";
         ManifestTimeouts manifestTimeouts;
         LogLevel logLevel = LogLevel::Debug;
         std::string logDir;
@@ -41,7 +41,7 @@ namespace {
     Snapshot MakeDefaultSnapshot(const std::string& configPath) {
         Snapshot snapshot;
         std::filesystem::path p(configPath);
-        snapshot.logDir = (p.parent_path() / "opensteamtool").string();
+        snapshot.logDir = (p.parent_path() / "Neko").string();
         return snapshot;
     }
 
@@ -65,7 +65,7 @@ namespace {
     void ApplyManifestProvider(const std::string& provider) {
         if (!ManifestClient::SetProvider(provider)) {
             LOG_WARN("Unknown manifest.url \"{}\", keeping default", provider);
-            ManifestClient::SetProvider("opensteamtool");
+            ManifestClient::SetProvider("neko");
         }
     }
 

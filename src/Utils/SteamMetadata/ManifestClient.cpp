@@ -64,7 +64,7 @@ namespace ManifestClient {
     // fallback for when the depot is genuinely unknown, and for the two
     // third-party providers that expose no depot-aware route.
     static constexpr Provider kProviders[] = {
-        Make("opensteamtool", "https://manifest.opensteamtool.com/%llu",
+        Make("neko",          "https://manifest.opensteamtool.com/%llu",
                               "https://manifest.opensteamtool.com/%u/%u/%llu",  ParsePlainUint),
         Make("wudrm",         "http://gmrc.wudrm.com/manifest/%llu",
                               nullptr,                                          ParsePlainUint),
@@ -76,6 +76,7 @@ namespace ManifestClient {
     static std::mutex      g_mutex;
 
     bool SetProvider(std::string_view name) {
+        if (name == "opensteamtool") name = "neko";
         std::lock_guard<std::mutex> lock(g_mutex);
         for (const auto& p : kProviders)
             if (p.name == name) { 

@@ -104,7 +104,7 @@ namespace {
                 ++shown;
             }
 
-            OSTPlatform::Dialog::ShowWarning("OpenSteamTool - manifests not ready", body);
+            OSTPlatform::Dialog::ShowWarning("Neko - manifests not ready", body);
             return 0;
         });
     }

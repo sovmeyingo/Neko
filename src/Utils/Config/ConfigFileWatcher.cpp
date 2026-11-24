@@ -66,7 +66,7 @@ void RestartLuaWatcher() {
 
 // ── manifest probe request file ──────────────────────────────────────────────
 // Diagnostic only. Drop depot ids, one per line, into manifest_probe.txt beside
-// opensteamtool.toml and each is turned into an originated
+// Neko.toml and each is turned into an originated
 // GetManifestRequestCode; results land in manifest.log.
 //
 // It shares this watcher rather than starting its own because the file sits in

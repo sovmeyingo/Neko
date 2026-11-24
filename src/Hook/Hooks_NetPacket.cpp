@@ -271,6 +271,7 @@ namespace {
     }
 
     // ── Hash constants for target_job_name dispatch ─────────────
+    constexpr uint32 HASH_JOB_NotifyRunningApps = Fnv1aHash("FamilyGroupsClient.NotifyRunningApps#1");
     constexpr uint32 HASH_JOB_GetUserStats = Fnv1aHash("Player.GetUserStats#1");
     constexpr uint32 HASH_JOB_GetManifestRequestCode = Fnv1aHash("ContentServerDirectory.GetManifestRequestCode#1");
     constexpr uint32 HASH_JOB_GetGameAchievements = Fnv1aHash("Player.GetGameAchievements#1");
@@ -411,19 +412,16 @@ namespace Hooks_NetPacket_UserStats {
         LOG_ACHIEVEMENT_DEBUG("Player::GetUserStats request: original body:\n{}", req.DebugString());
         
         AppId_t appId = req.appid();
+        bool hasShaSchema = req.has_sha_schema() && !req.sha_schema().empty();
+
+        if (hasShaSchema) {
+            LOG_ACHIEVEMENT_WARN("Player::GetUserStats request: sha_schema is present, do not spoof");
+            return false;
+        }
         if (!LuaConfig::HasDepot(appId)) {
             LOG_ACHIEVEMENT_WARN("Player::GetUserStats request: appid={} is not in addappid", appId);
             return false;
         }
-
-        // Spoof the stat SteamID even when sha_schema is present, leaving the sha
-        // on the request. The server then returns a fresh schema whenever its hash
-        // differs from the client's, so lua games pick up newly added achievements
-        // instead of keeping their first-downloaded schema forever. The reply is
-        // handled as in the no-sha path (eresult=OK, stats stripped, schema kept),
-        // so local stats are unaffected.
-        if (req.has_sha_schema() && !req.sha_schema().empty())
-            LOG_ACHIEVEMENT_DEBUG("Player::GetUserStats request: appid={} sha_schema present, spoofing anyway for schema refresh", appId);
 
         // Save jobid_source -> appid for the response handler
         CMsgProtoBufHeader hdr;
@@ -947,6 +945,21 @@ namespace Hooks_NetPacket_OwnershipTicket {
     }
 
 } // namespace Hooks_NetPacket_OwnershipTicket
+
+
+// ════════════════════════════════════════════════════════════════
+//  Hooks_NetPacket_FamilySharing
+// ════════════════════════════════════════════════════════════════
+namespace Hooks_NetPacket_FamilySharing {
+
+    void ClearBody(const uint8*, uint32)
+    {
+        LOG_NETPACKET_DEBUG("Clearing family sharing message...");
+        g_cbNewBody = 0;
+        g_NeedReplaceBody = true;
+    }
+
+} // namespace Hooks_NetPacket_FamilySharing
 
 
 // ════════════════════════════════════════════════════════════════
@@ -2189,6 +2202,10 @@ namespace {
 
         switch (Fnv1aHash(targetJobName)) {
 
+        case HASH_JOB_NotifyRunningApps:
+            Hooks_NetPacket_FamilySharing::ClearBody(pBody, cbBody);
+            return;
+
         case HASH_JOB_GetUserStats:
             Hooks_NetPacket_UserStats::HandleRecv_GetUserStatsResponse(pHdr, cbHdr, pBody, cbBody);
             return;
@@ -2244,6 +2261,10 @@ namespace {
         case k_EMsgClientGetUserStatsResponse:     // 819
             g_NeedReplaceBody = Hooks_NetPacket_UserStats::HandleRecv_ClientGetUserStatsResponse(
                 pBody, cbBody);
+            return;
+
+        case k_EMsgClientSharedLibraryStopPlaying:     // 9406
+            Hooks_NetPacket_FamilySharing::ClearBody(pBody, cbBody);
             return;
 
         case k_EMsgClientPersonaState:                 // 766

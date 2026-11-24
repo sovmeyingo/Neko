@@ -12,6 +12,7 @@
 #include <windows.h>
 
 #include <cctype>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <optional>
@@ -23,11 +24,33 @@ namespace AppUpdater {
 
 namespace {
     // Bounds for a sane framework DLL payload — guards against a truncated or hostile
-    // response being written to disk. OpenSteamTool.dll is ~1 MB.
+    // response being written to disk. Neko.dll is ~1 MB.
     constexpr size_t kMinDllBytes = 200 * 1024;
     constexpr size_t kMaxDllBytes = 8 * 1024 * 1024;
 
-    constexpr const char* kPointerPath = "opensteamtool/latest.toml";
+    constexpr const char* kPointerPath = "neko/latest.toml";
+
+    // Exported so the compiler keeps the identity in every published Neko DLL.
+    constexpr std::string_view kBuildIdentity = "Neko.Update.Format.1";
+
+    bool IsNekoDll(std::string_view body)
+    {
+        if (body.size() < sizeof(IMAGE_NT_HEADERS64)) return false;
+        IMAGE_DOS_HEADER dos{};
+        std::memcpy(&dos, body.data(), sizeof(dos));
+        if (dos.e_magic != IMAGE_DOS_SIGNATURE || dos.e_lfanew < 0) return false;
+        const size_t peOffset = static_cast<size_t>(dos.e_lfanew);
+        if (peOffset > body.size() - sizeof(IMAGE_NT_HEADERS64)) return false;
+        IMAGE_NT_HEADERS64 pe{};
+        std::memcpy(&pe, body.data() + peOffset, sizeof(pe));
+        return pe.Signature == IMAGE_NT_SIGNATURE &&
+            pe.FileHeader.Machine == IMAGE_FILE_MACHINE_AMD64 &&
+            (pe.FileHeader.Characteristics & IMAGE_FILE_DLL) != 0 &&
+            pe.OptionalHeader.Magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC &&
+            body.find(kBuildIdentity) != std::string_view::npos &&
+            body.find("\\Neko.dll") != std::string_view::npos &&
+            body.find("\\Neko.toml") != std::string_view::npos;
+    }
 
     bool EqualsIgnoreCase(std::string_view a, std::string_view b)
     {
@@ -48,6 +71,11 @@ namespace {
         return s;
     }
 } // namespace
+
+extern "C" __declspec(dllexport) const char* NekoUpdateIdentity()
+{
+    return kBuildIdentity.data();
+}
 
 CheckResult Check()
 {
@@ -71,6 +99,13 @@ CheckResult Check()
     const auto version = tbl["version"].value<std::string>();
     const auto path    = tbl["path"].value<std::string>();
     const auto sha     = tbl["sha256"].value<std::string>();
+    if (tbl["product"].value_or(std::string{}) != "Neko" ||
+        tbl["format"].value_or<int64_t>(0) != 1 || !path ||
+        !path->starts_with("neko/") || !path->ends_with("/Neko.dll") ||
+        path->find("..") != std::string::npos || path->find('\\') != std::string::npos) {
+        LOG_WARN("AppUpdater: update is not a supported Neko release");
+        return r;
+    }
     if (!version || !path || !sha || version->empty() || path->empty() || sha->empty()) {
         LOG_WARN("AppUpdater: latest.toml missing version/path/sha256");
         return r;
@@ -113,6 +148,11 @@ bool DownloadAndStage(const CheckResult& result, const std::string& selfDllPath)
     const std::string actual = OSTPlatform::Hash::Sha256OfBuffer(body.data(), body.size());
     if (actual.empty() || !EqualsIgnoreCase(actual, result.sha256)) {
         LOG_WARN("AppUpdater: SHA-256 mismatch (expected {}, got {})", result.sha256, actual);
+        return false;
+    }
+
+    if (!IsNekoDll(body)) {
+        LOG_WARN("AppUpdater: rejected DLL without compatible Neko identity and paths");
         return false;
     }
 

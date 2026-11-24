@@ -4,7 +4,7 @@ project(OpenSteamTool VERSION 1.0.0 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_C_STANDARD 11)
-set(OPENSTEAMTOOL_VERSION "${PROJECT_VERSION}" CACHE STRING "Version string embedded into OpenSteamTool.dll")
+set(OPENSTEAMTOOL_VERSION "${PROJECT_VERSION}" CACHE STRING "Version string embedded into Neko.dll")
 
 # Allow CMAKE_MSVC_RUNTIME_LIBRARY to control runtime selection for all targets,
 # including dependencies pulled in via FetchContent.
@@ -156,6 +156,8 @@ add_library(OpenSteamTool SHARED
     "${PROTO_GEN_DIR}/steam_messages.pb.cc"
 )
 
+set_target_properties(OpenSteamTool PROPERTIES OUTPUT_NAME "Neko")
+
 # Header search path — per-config include directory
 target_include_directories(OpenSteamTool PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
@@ -201,9 +203,15 @@ endif()
 #   cmake -B build -DOST_ENABLE_UPDATER=OFF
 #
 # This is a compile-time cut, not a runtime setting: with it off, the updater is
-# not reachable at all and [update] enabled in opensteamtool.toml has no effect.
+# not reachable at all and [update] enabled in Neko.toml has no effect.
 # Use it for private or pinned builds that must not be replaced under the user.
 option(OST_ENABLE_UPDATER "Compile in the self-updater" ON)
+set(NEKO_UPDATE_REPOSITORY "sovmeyingo/Neko" CACHE STRING "GitHub repository publishing Neko updates")
+if(NOT NEKO_UPDATE_REPOSITORY MATCHES "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
+    message(FATAL_ERROR "NEKO_UPDATE_REPOSITORY must have the form owner/repository")
+endif()
+target_compile_definitions(OpenSteamTool PRIVATE
+    NEKO_UPDATE_REPOSITORY="${NEKO_UPDATE_REPOSITORY}")
 if(OST_ENABLE_UPDATER)
     target_compile_definitions(OpenSteamTool PRIVATE OST_ENABLE_UPDATER)
 endif()

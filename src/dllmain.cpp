@@ -31,7 +31,19 @@ bool InitializeSteamComponents()
     sprintf_s(SteamUIPath,     kRuntimePathCapacity, "%s\\steamui.dll",        SteamInstallPath);
     sprintf_s(DiversionPath,   kRuntimePathCapacity, "%s\\bin\\diversion.dll", SteamInstallPath);
     sprintf_s(LuaDir,          kRuntimePathCapacity, "%s\\config\\stplug-in",  SteamInstallPath);
-    sprintf_s(ConfigPath,      kRuntimePathCapacity, "%s\\opensteamtool.toml", SteamInstallPath);
+    sprintf_s(ConfigPath,      kRuntimePathCapacity, "%s\\Neko.toml", SteamInstallPath);
+    const std::filesystem::path legacyConfig =
+        std::filesystem::path(SteamInstallPath) / "opensteamtool.toml";
+    std::error_code configError;
+    if (!std::filesystem::exists(ConfigPath, configError) &&
+        std::filesystem::is_regular_file(legacyConfig, configError)) {
+        std::filesystem::copy_file(legacyConfig, ConfigPath,
+                                  std::filesystem::copy_options::none, configError);
+        if (configError) {
+            LOG_WARN("Could not migrate existing settings to Neko.toml: {}", configError.message());
+            sprintf_s(ConfigPath, kRuntimePathCapacity, "%s", legacyConfig.string().c_str());
+        }
+    }
     
     client_hModule = OSTPlatform::DynamicLibrary::Load(SteamclientPath);
     if (!client_hModule) {
@@ -54,7 +66,7 @@ bool InitializeSteamComponents()
 // any of that from inside DllMain (loader lock).
 static uint32_t InitThread(OSTPlatform::DynamicLibrary::ModuleHandle selfModule) {
     Log::Init(selfModule);
-    LOG_INFO("OpenSteamTool init thread started");
+    LOG_INFO("Neko init thread started");
 
     if (!InitializeSteamComponents()) {
         LOG_ERROR("InitializeSteamComponents failed");
@@ -101,7 +113,7 @@ static uint32_t InitThread(OSTPlatform::DynamicLibrary::ModuleHandle selfModule)
 
     // Register the bst:// URI scheme so the website can drive code redemption via this
     // DLL (rundll32 handler). HKCU, no admin; idempotent.
-    TokeerBridge::RegisterUriScheme(std::string(SteamInstallPath) + "\\OpenSteamTool.dll");
+    TokeerBridge::RegisterUriScheme(std::string(SteamInstallPath) + "\\Neko.dll");
 
     // Optional self-update check. Runs on its own detached thread so the network
     // round-trip never delays hook installation; a staged DLL applies next launch.
@@ -113,7 +125,7 @@ static uint32_t InitThread(OSTPlatform::DynamicLibrary::ModuleHandle selfModule)
 #ifdef OST_ENABLE_UPDATER
     if (Config::GetUpdateEnabled()) {
         OSTPlatform::Thread::StartDetached([] () -> uint32_t {
-            const std::string self = std::string(SteamInstallPath) + "\\OpenSteamTool.dll";
+            const std::string self = std::string(SteamInstallPath) + "\\Neko.dll";
             AppUpdater::CleanupStagedBackup(self);
 
             const AppUpdater::CheckResult upd = AppUpdater::Check();
@@ -121,9 +133,9 @@ static uint32_t InitThread(OSTPlatform::DynamicLibrary::ModuleHandle selfModule)
             if (!AppUpdater::DownloadAndStage(upd, self)) return 0;
 
             const bool restart = OSTPlatform::Dialog::ShowConfirm(
-                "BetterSteamTools Updated!",
+                "Neko DLL g\xC3\xBCncellemesi var",
                 upd.oldVersion + " -> " + upd.newVersion +
-                "\n\nRestart Steam now to apply?");
+                "\n\nNeko DLL g\xC3\xBCncellemesi indirildi. Uygulamak i\xC3\xA7in Steam yeniden ba\xC5\x9Flat\xC4\xB1ls\xC4\xB1n m\xC4\xB1?");
             if (restart) AppUpdater::RestartSteam();
             return 0;
         });
@@ -132,7 +144,7 @@ static uint32_t InitThread(OSTPlatform::DynamicLibrary::ModuleHandle selfModule)
     LOG_INFO("Self-updater not compiled in (OST_ENABLE_UPDATER=OFF)");
 #endif
 
-    LOG_INFO("OpenSteamTool init complete");
+    LOG_INFO("Neko init complete");
     return 0;
 }
 

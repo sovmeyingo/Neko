@@ -1,4 +1,5 @@
 #include "include/Dialog.h"
+#include "include/Encoding.h"
 
 #include <windows.h>
 
@@ -13,7 +14,9 @@ void ShowInfo(std::string title, std::string message) {
 }
 
 bool ShowConfirm(std::string title, std::string message) {
-    return MessageBoxA(nullptr, message.c_str(), title.c_str(),
+    const std::wstring wideTitle = Encoding::Utf8ToWide(title);
+    const std::wstring wideMessage = Encoding::Utf8ToWide(message);
+    return MessageBoxW(nullptr, wideMessage.c_str(), wideTitle.c_str(),
                        MB_YESNO | MB_ICONINFORMATION | MB_TOPMOST) == IDYES;
 }
 

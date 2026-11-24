@@ -6,17 +6,18 @@
 #include <iterator>
 #include <string>
 
+#ifndef NEKO_UPDATE_REPOSITORY
+#define NEKO_UPDATE_REPOSITORY "sovmeyingo/Neko"
+#endif
+
 namespace Mirror {
 
 namespace {
-    // Delivery mirror chain for the `updates` branch of madoiscool/BetterSteamTools.
-    // Independent hosts (not just CDN copies of one repo), tried in order until one
-    // returns HTTP 200. github-raw first for pointer freshness; jsDelivr and lua.tools
-    // cover regions where raw.githubusercontent is throttled/blocked.
+    // Neko releases are rebuilt from upstream before being published here.
+    // Raw GitHub is tried before the CDN to prefer a fresh version pointer.
     constexpr const char* kBaseTemplates[] = {
-        "https://raw.githubusercontent.com/madoiscool/BetterSteamTools/updates/{path}",
-        "https://cdn.jsdelivr.net/gh/madoiscool/BetterSteamTools@updates/{path}",
-        "https://git.lua.tools/luatools/BetterSteamTools/raw/branch/updates/{path}",
+        "https://raw.githubusercontent.com/" NEKO_UPDATE_REPOSITORY "/updates/{path}",
+        "https://cdn.jsdelivr.net/gh/" NEKO_UPDATE_REPOSITORY "@updates/{path}",
     };
 
     std::string Expand(std::string tmpl, std::string_view relPath)
