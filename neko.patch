@@ -1,0 +1,1480 @@
+diff --git a/Neko.example.toml b/Neko.example.toml
+new file mode 100644
+index 0000000..f0f9547
+--- /dev/null
++++ b/Neko.example.toml
+@@ -0,0 +1,142 @@
++# Neko.toml — Neko configuration
++# Place at: <Steam>/Neko.toml
++# This file is loaded at startup and hot-reloaded after changes.
++
++[log]
++# Log verbosity for all log files (Debug build only).
++# Valid: trace, debug, info, warn, error
++level = "debug"
++
++[manifest]
++# Which upstream API to query for depot manifest request codes.
++#   "neko" → https://manifest.opensteamtool.com/{gid}   (default)
++#   "wudrm"         → http://gmrc.wudrm.com/manifest/{gid} (recommended for China users)
++#   "steamrun"      → https://manifest.steam.run/api/manifest/{gid}
++# If <Steam>/config/stplug-in/manifest.lua defines fetch_manifest_code(gid) or
++# fetch_manifest_code_ex(app_id, depot_id, gid), those Lua functions take
++# priority over the url setting below.
++#
++# --- manifest.lua reference ---
++# The C++ side provides http_get(url [, headers]) and
++# http_post(url, body [, headers]) to Lua scripts.  Both return
++# (body_string, status_code) on success, or (nil, error_msg) on failure.
++#
++# -- Example: try wudrm (plain-text uint64), fall back to steamrun (JSON).
++# -- Return a digit *string* to avoid double-precision loss > 2^53.
++# function fetch_manifest_code(gid)
++#     -- wudrm responds with e.g. "10570517747114638659"
++#     local body, st = http_get("http://gmrc.wudrm.com/manifest/" .. gid)
++#     if st == 200 and body then return body end
++#     -- steamrun responds with {"content":"1666836470726104466"}
++#     body, st = http_get("https://manifest.steam.run/api/manifest/" .. gid)
++#     if st == 200 and body then
++#         local code = body:match('"content":"(%d+)"')
++#         if code then return code end
++#     end
++#     return nil
++# end
++#
++# -- Extended variant with app_id and depot_id:
++# function fetch_manifest_code_ex(app_id, depot_id, gid)
++#     local body, st = http_get("https://your-api.com/manifest-code/" .. app_id .. "/" .. gid)
++#     if st == 200 and body and body:match("^%d+$") then
++#         return body
++#     end
++#     return nil
++# end
++url = "neko"
++
++# HTTP timeouts for manifest requests (milliseconds).
++# timeout_resolve_ms  — DNS resolution        (default: 5000)
++# timeout_connect_ms  — TCP handshake          (default: 5000)
++# timeout_send_ms     — request transmission   (default: 10000)
++# timeout_recv_ms     — response body download (default: 10000)
++timeout_resolve_ms = 5000
++timeout_connect_ms = 5000
++timeout_send_ms    = 10000
++timeout_recv_ms    = 10000
++
++[donate]
++# Contribute manifest request codes for depots THIS account owns, so other users
++# can download those games. Codes are minted on demand from your signed-in Steam
++# session and posted immediately (never stored). Only depots you actually own are
++# ever reported — the rest of your library is never uploaded. Set enabled = false
++# to opt out completely.
++enabled = true
++# Archive base URL. Leave unset to use the built-in default (manifest.luastools.xyz).
++# url = "https://manifest.luastools.xyz"
++# Seconds to rest between mint cycles (min 30, default 30).
++# interval_secs = 30
++# How often to re-pull the (large) wanted list; minting still runs every cycle
++# (default 300 = 5 min). Freshness within a cycle comes from a per-manifest check.
++# wanted_refresh_secs = 300
++# Max Steam code mints per cycle (default 25).
++# max_mints_per_cycle = 25
++# Minimum gap between consecutive Steam calls, ms — the real rate cap (default 2000).
++# min_mint_interval_ms = 2000
++# Total mints per Steam session; 0 = unlimited (default 0).
++# max_mints_per_session = 0
++
++[stats]
++# Automatically query https://stats.opensteamtool.com/{appid} for a recommended
++# SteamID when no Lua setStat(appid, "steamid") override exists.
++# Priority: setStat > stats API when enabled and valid > hardcoded preset SteamID.
++enable_api = true
++
++[update]
++# Check for a newer build on startup. When a newer build is
++# found it is downloaded, verified (SHA-256) and staged next to Steam; the new
++# DLL loads on the next Steam launch. Set to false to disable the check entirely.
++enabled = true
++
++# Additional Lua config directories (optional).
++# Files are loaded after the default <Steam>/config/stplug-in folder.
++# The default folder is always loaded last so user files take priority.
++# Example — load a custom directory on another drive:
++#   [lua]
++#   paths = ["D:/my-steam-config/lua"]
++[lua]
++# paths = []
++
++# Optional library injection into game processes. Each [[inject]] entry is loaded
++# when every condition it sets matches the launch.
++# Example:
++#   [[inject]]
++#   path = "NekoHook.dll"      # bare name resolves next to steam.exe; absolute path used as-is
++#   when_cmdline = "-my_special_hook"   # optional: require this substring in the launch command (default: any)
++#   when_appids = [1361510]             # optional: restrict to these appids (default: any)
++#   all_games = false                   # optional: true injects into every game, false only into Lua-added games (default: false)
++
++[cloud]
++# Optional Steam Cloud save redirection for unlocked ("lua") games, powered by
++# CloudRedirect (https://github.com/Selectively11/CloudRedirect).
++# When enabled, Neko loads cloud_redirect.dll inside Steam, registers
++# every addappid() game as a redirected app, and routes their Steam Cloud RPCs
++# through CloudRedirect's cloud-save engine.
++#
++# Provider sign-in (Google Drive / OneDrive / local folder) is still done through
++# CloudRedirect's own companion app — Neko only hosts the DLL.
++enabled = false
++# Path to cloud_redirect.dll. Absolute, or relative to the Steam root directory.
++# Defaults to "<Steam>/cloud_redirect.dll" when unset.
++# library = "cloud_redirect.dll"
++
++[remote]
++# Optional metadata mirror(s). Leave unset to use the built-in mirror chain,
++# which is tried in order until one responds:
++#   1. https://raw.githubusercontent.com/madoiscool/steam-monitor/{channel}/{component}/{sha256}.toml
++#   2. https://cdn.jsdelivr.net/gh/madoiscool/steam-monitor@{channel}/{component}/{sha256}.toml
++#   3. https://git.lua.tools/luatools/steam-monitor/raw/branch/{channel}/{component}/{sha256}.toml
++#
++# url_template may be a single string OR an array of strings. When set, it
++# REPLACES the built-in chain (the built-ins are not tried). Each entry must
++# contain all three placeholders: {channel}, {component}, and {sha256}.
++#
++# Single custom mirror:
++# url_template = "https://your.server/{channel}/{component}/{sha256}.toml"
++#
++# Multiple fallbacks (tried top to bottom):
++# url_template = [
++#   "https://git.lua.tools/luatools/steam-monitor/raw/branch/{channel}/{component}/{sha256}.toml",
++#   "https://raw.githubusercontent.com/madoiscool/steam-monitor/{channel}/{component}/{sha256}.toml",
++# ]
+diff --git a/README.md b/README.md
+index 60db824..7bc0980 100644
+--- a/README.md
++++ b/README.md
+@@ -1,7 +1,6 @@
+ <div align="center">
+-  <img src="docs/bst.png" width="100%" alt="BetterSteamTools logo">
+-
+-  <h1>BetterSteamTools - a fork of OpenSteamTools!</h1>
++  <h1>Neko</h1>
++  <!-- Based on BetterSteamTools and OpenSteamTools. -->
+ 
+   <p>
+     <strong>Open-Source Steam Unlock Tool</strong>
+@@ -40,7 +39,7 @@
+ - Unlock an unlimited number of unowned games.
+ - Unlock all DLCs for unowned games.
+ - Support auto load depot decryption keys from Lua config.
+-- Support auto manifest download via `opensteamtool` / `steamrun` / `wudrm` upstream APIs (default is `opensteamtool`), or a custom Lua endpoint (see [Manifest via Lua](#manifest-via-lua)).
++- Support auto manifest download via `neko` / `steamrun` / `wudrm` upstream APIs (default is `neko`), or a custom Lua endpoint (see [Manifest via Lua](#manifest-via-lua)).
+ - Support downloading protected games or DLCs that require an access token.
+ - Support binding manifest to prevent specific games from being updated.
+ 
+@@ -48,21 +47,21 @@
+ - Adding, modifying, deleting, or overwriting `.lua` files in any watched directory automatically triggers a reload. No restart, no offline/online toggle needed.
+ 
+ ### Injection
+-- Add optional game-process DLL injection through one or more `[[inject]]` entries in `opensteamtool.toml`.
++- Add optional game-process DLL injection through one or more `[[inject]]` entries in `Neko.toml`.
+ - Each entry sets a `path` (a bare name resolves next to `steam.exe`; an absolute path is used as-is) and optional conditions — `when_cmdline` (substring required in the launch command), `when_appids` (restrict to specific appids), and `all_games` (`true` = every game, `false` = only Lua-added games). A DLL injects when *every* condition it sets matches; multiple entries may target the same game and each DLL injects at most once.
+ 
+ ### Family Sharing and Remote Play
+-- Bypass Steam Family Sharing restrictions for games that have been added to the library with `addappid` in Lua. All accounts in the Steam Family that participate in sharing must use OpenSteamTool for this to work.
++- Bypass Steam Family Sharing restrictions for games that have been added to the library with `addappid` in Lua. All accounts in the Steam Family that participate in sharing must use Neko for this to work.
+ 
+ ### Compatible with games protected by Denuvo and SteamStub
+-- SteamStub-only games do not require configuring `AppTicket`. OpenSteamTool can reuse Steam's local ConfigStore ticket and forge the requested AppId through a SteamDRMP off-by-four ticket parsing vulnerability, without injecting into the game process.
++- SteamStub-only games do not require configuring `AppTicket`. Neko can reuse Steam's local ConfigStore ticket and forge the requested AppId through a SteamDRMP off-by-four ticket parsing vulnerability, without injecting into the game process.
+ 
+ ### Third-party product keys ("Updating product key")
+-- For titles that carry a Steam-issued third-party retail key (Ubisoft Connect, Rockstar, etc.), OpenSteamTool answers the client's legacy key request locally, so the "Updating product key" step completes for added games instead of failing. Supply a real key with `setlegacycdkey(appid, "KEY")`; when none is configured a deterministic synthetic key is generated. A synthetic key satisfies Steam's local step only — titles that validate the key online still require a real one.
+-- Denuvo-protected games still require explicit ticket data. OpenSteamTool stores `AppTicket` and `ETicket` through the platform credential store.
++- For titles that carry a Steam-issued third-party retail key (Ubisoft Connect, Rockstar, etc.), Neko answers the client's legacy key request locally, so the "Updating product key" step completes for added games instead of failing. Supply a real key with `setlegacycdkey(appid, "KEY")`; when none is configured a deterministic synthetic key is generated. A synthetic key satisfies Steam's local step only — titles that validate the key online still require a real one.
++- Denuvo-protected games still require explicit ticket data. Neko stores `AppTicket` and `ETicket` through the platform credential store.
+ - Use `setAppTicket(appid, "hex")` and `setETicket(appid, "hex")` in Lua config to write these values to the platform credential store automatically.
+ - Denuvo verification has a 30-minute validity window. After this window expires, authorization may fail with Denuvo error code `88500005`; refresh the ticket data before retrying.
+-- AppTicket priority: explicit tickets have the highest priority, including tickets configured by `setAppTicket` and existing cached `AppTicket` credential values. If no explicit AppTicket is available, OpenSteamTool falls back to the forged local ConfigStore ticket path.
++- AppTicket priority: explicit tickets have the highest priority, including tickets configured by `setAppTicket` and existing cached `AppTicket` credential values. If no explicit AppTicket is available, Neko falls back to the forged local ConfigStore ticket path.
+ - SteamID priority: read cached `SteamID` first; if missing, parse from explicit `AppTicket`. On Windows, the credential store backend currently uses `HKCU\Software\Valve\Steam\Apps\<AppId>`. The Linux backend is not implemented yet.
+ 
+ #### Extracting tickets with `extract_tickets`
+@@ -95,7 +94,7 @@ The `extract_tickets` tool dumps the `AppTicket` and `ETicket` hex strings you n
+ ### Stats and Achievements
+ - Enable stats and achievements for unowned games.
+ - Uses `setStat(appid, "steamid")` to configure which SteamID's achievement data to pull.
+-- If no `setStat` is configured for an app, OpenSteamTool queries `https://stats.luastools.xyz/{appid}` when `[stats] enable_api = true` (default).
++- If no `setStat` is configured for an app, Neko queries `https://stats.opensteamtool.com/{appid}` when `[stats] enable_api = true` (default).
+ - Priority: `setStat` > stats API when enabled and valid > hardcoded preset SteamID `76561198028121353`.
+ 
+ ### Online Fix
+@@ -111,7 +110,7 @@ The `extract_tickets` tool dumps the `AppTicket` and `ETicket` hex strings you n
+ 
+ ## Usage
+ 1. Run `build.bat` from the project root to build the project.
+-2. Copy generated `dwmapi.dll`, `xinput1_4.dll` and `OpenSteamTool.dll` to the Steam root directory.
++2. Copy generated `dwmapi.dll`, `xinput1_4.dll` and `Neko.dll` to the Steam root directory.
+ 3. Create Lua directory (for example `C:\steam\config\lua`) and place Lua scripts there. The DLL will automatically load and execute them.
+ 4. Lua example:
+ ```lua
+@@ -141,7 +140,7 @@ All function names are **case-insensitive**. `setAppTicket`, `setappticket`, `Se
+ 
+ ### Configuration (optional)
+ 
+-Rename `opensteamtool.example.toml` to `opensteamtool.toml` and place it in the Steam root directory (next to `steam.exe`).
++Rename `Neko.example.toml` to `Neko.toml` and place it in the Steam root directory (next to `steam.exe`).
+ If no config file is found, built-in defaults are used — no auto-creation.
+ The file is watched while Steam is running; valid changes are hot-reloaded without restarting Steam.
+ 
+@@ -151,8 +150,8 @@ The file is watched while Steam is running; valid changes are hot-reloaded witho
+ level = "info"
+ 
+ [manifest]
+-# Upstream API for depot manifest request codes.  Options: "opensteamtool", "steamrun", "wudrm"
+-url = "opensteamtool"
++# Upstream API for depot manifest request codes.  Options: "neko", "steamrun", "wudrm"
++url = "neko"
+ 
+ # HTTP timeouts for manifest requests (milliseconds)
+ timeout_resolve_ms = 5000
+@@ -161,7 +160,7 @@ timeout_send_ms    = 10000
+ timeout_recv_ms    = 10000
+ 
+ [stats]
+-# Query https://stats.luastools.xyz/{appid} when no Lua setStat override exists.
++# Query https://stats.opensteamtool.com/{appid} when no Lua setStat override exists.
+ # Priority: setStat > stats API > hardcoded preset SteamID.
+ enable_api = true
+ 
+@@ -174,7 +173,7 @@ paths = []
+ # Optional DLL injection into game processes. Each [[inject]] entry is loaded
+ # when every condition it sets matches the launch.
+ # [[inject]]
+-# path = "OpenSteamToolHook.dll"      # bare name resolves next to steam.exe; absolute path used as-is
++# path = "NekoHook.dll"      # bare name resolves next to steam.exe; absolute path used as-is
+ # when_cmdline = "-my_special_hook"   # optional: require this substring in the launch command (default: any)
+ # when_appids = [1361510]             # optional: restrict to these appids (default: any)
+ # all_games = false                   # optional: true injects into every game, false only into Lua-added games (default: false)
+@@ -218,17 +217,17 @@ The C++ runtime provides two Lua helpers:
+ 
+ ### Steam version compatibility
+ 
+-OpenSteamTool no longer ships byte-pattern signatures inside the DLL. Instead, on each launch it computes the SHA-256 of `steamclient64.dll` and `steamui.dll` on disk and looks up a matching pattern file from the upstream tracker at [`OpenSteam001/steam-monitor`](https://github.com/OpenSteam001/steam-monitor) (`pattern` branch).
++Neko no longer ships byte-pattern signatures inside the DLL. Instead, on each launch it computes the SHA-256 of `steamclient64.dll` and `steamui.dll` on disk and looks up a matching pattern file from the upstream tracker at [`OpenSteam001/steam-monitor`](https://github.com/OpenSteam001/steam-monitor) (`pattern` branch).
+ 
+ Lookup order (every launch):
+ 
+ 1. **GitHub raw** — `https://raw.githubusercontent.com/OpenSteam001/steam-monitor/pattern/...`. Canonical source.
+ 2. **jsDelivr CDN** — automatic fallback if GitHub raw is unreachable (connection refused / timeout / 5xx). No configuration required. Useful in regions where `raw.githubusercontent.com` is blocked but jsDelivr is reachable (e.g. mainland China).
+-3. **Local cache** — `<Steam>\opensteamtool\pattern\<subdir>\<sha256>.toml`. Used **only** when remote is unreachable. The cache is overwritten after every successful remote fetch.
++3. **Local cache** — `<Steam>\Neko\pattern\<subdir>\<sha256>.toml`. Used **only** when remote is unreachable. The cache is overwritten after every successful remote fetch.
+ 
+ Remote is consulted on every launch so users automatically pick up upstream re-publications (e.g. the bot adding a new signature, or fixing an existing one) without having to clear any cache.
+ 
+-If a step returns **HTTP 404** the mirror loop stops immediately — all mirrors serve the same content, so a 404 means the upstream bot has not yet published a TOML for this Steam build. The code then falls back to the local cache if one exists; otherwise a one-shot popup appears with the unmatched DLL name, its SHA-256, the expected cache path, and the upstream URL. Only the hooks tied to that DLL are disabled — the rest of OpenSteamTool keeps working.
++If a step returns **HTTP 404** the mirror loop stops immediately — all mirrors serve the same content, so a 404 means the upstream bot has not yet published a TOML for this Steam build. The code then falls back to the local cache if one exists; otherwise a one-shot popup appears with the unmatched DLL name, its SHA-256, the expected cache path, and the upstream URL. Only the hooks tied to that DLL are disabled — the rest of Neko keeps working.
+ 
+ You can also drop a pattern TOML into the cache directory manually if you know the layout for a given build; the file name must be `<sha256>.toml`. The cache fallback will pick it up the next time remote is unreachable.
+ 
+@@ -248,7 +247,7 @@ url_template = "https://your.server/{channel}/{component}/{sha256}.toml"
+ 
+ ### Debug logging
+ 
+-Debug builds write per-module log files under `<Steam>/opensteamtool/`:
++Debug builds write per-module log files under `<Steam>/Neko/`:
+ 
+ | File | Source | Content |
+ |------|--------|---------|
+@@ -268,7 +267,7 @@ Debug builds write per-module log files under `<Steam>/opensteamtool/`:
+ | `pipe.log`          | `LOG_PIPE_*` | Pipe handshakes, process inspection, Denuvo authorization, library injection |
+ | `platform.log`      | `LOG_PLATFORM_*` | Platform helper diagnostics, including remote-process operations |
+ 
+-The log level is controlled by `[log] level` in `opensteamtool.toml`.
++The log level is controlled by `[log] level` in `Neko.toml`.
+ 
+ ## Build
+ 
+@@ -286,8 +285,8 @@ build.bat
+ ```
+ 
+ ### Output
+-- Debug: `build/Debug/OpenSteamTool.dll`, `build/Debug/dwmapi.dll`, `build/Debug/xinput1_4.dll`
+-- Release: `build/Release/OpenSteamTool.dll`, `build/Release/dwmapi.dll`, `build/Release/xinput1_4.dll`
++- Debug: `build/Debug/Neko.dll`, `build/Debug/dwmapi.dll`, `build/Debug/xinput1_4.dll`
++- Release: `build/Release/Neko.dll`, `build/Release/dwmapi.dll`, `build/Release/xinput1_4.dll`
+ 
+ ## Disclaimer
+ This project is provided for research and educational purposes only. You are responsible for complying with local laws, platform terms of service, and software licenses.
+diff --git a/README_ES.md b/README_ES.md
+index 5329587..2cd6110 100644
+--- a/README_ES.md
++++ b/README_ES.md
+@@ -1,7 +1,6 @@
+ <div align="center">
+-  <img src="docs/bst.png" width="100%" alt="Logo de BetterSteamTools">
+-
+-  <h1>BetterSteamTools - a fork of OpenSteamTools!</h1>
++  <h1>Neko</h1>
++  <!-- Basado en BetterSteamTools y OpenSteamTools. -->
+ 
+   <p>
+     <strong>Herramienta de código abierto para desbloquear Steam</strong>
+@@ -35,7 +34,7 @@
+ - Desbloquea una cantidad ilimitada de juegos que no poseas.
+ - Desbloquea todos los DLC para juegos que no poseas.
+ - Soporta la carga automática de claves de descifrado de depósitos(depots) desde la configuración de Lua.
+-- Soporta la descarga automática de manifiestos a través de las APIs ascendentes (upstream APIs) de `opensteamtool` / `steamrun` / `wudrm` (por defecto es opensteamtool), o mediante un endpoint personalizado de Lua (ver [Manifest a traves de Lua](#manifest-via-lua)).
++- Soporta la descarga automática de manifiestos a través de las APIs ascendentes (upstream APIs) de `neko` / `steamrun` / `wudrm` (por defecto es neko), o mediante un endpoint personalizado de Lua (ver [Manifest a traves de Lua](#manifest-via-lua)).
+ - Soporta la descarga de juegos protegidos o DLCs que requieran un token de acceso.
+ - Soporta la vinculación de manifiestos para evitar que juegos específicos se actualicen.
+ 
+@@ -43,18 +42,18 @@
+ - Añadir, modificar, eliminar o sobrescribir archivos `.lua` en cualquier directorio supervisado activa automáticamente una recarga. No se necesita reiniciar ni alternar entre modo desconectado/conectado.
+ 
+ ### Inyección
+-- Añade inyección opcional de DLL en procesos de juego mediante una o varias entradas `[[inject]]` en `opensteamtool.toml`.
++- Añade inyección opcional de DLL en procesos de juego mediante una o varias entradas `[[inject]]` en `Neko.toml`.
+ - Cada entrada define un `path` (un nombre simple se resuelve junto a `steam.exe`; una ruta absoluta se usa tal cual) y condiciones opcionales — `when_cmdline` (subcadena requerida en el comando de lanzamiento), `when_appids` (restringir a appids concretos) y `all_games` (`true` = todos los juegos, `false` = solo juegos añadidos por Lua). Un DLL se inyecta cuando coinciden *todas* las condiciones que define; varias entradas pueden apuntar al mismo juego y cada DLL se inyecta como máximo una vez.
+ 
+ ### Préstamo familiar y juego en remoto
+-- Omite las restricciones de Steam Family Sharing para los juegos que se hayan añadido a la biblioteca con `addappid` en Lua. Todas las cuentas de la familia de Steam que participen en el préstamo familiar deben usar OpenSteamTool para que esto funcione.
++- Omite las restricciones de Steam Family Sharing para los juegos que se hayan añadido a la biblioteca con `addappid` en Lua. Todas las cuentas de la familia de Steam que participen en el préstamo familiar deben usar Neko para que esto funcione.
+ 
+ ### Compatible con juegos protegidos por Denuvo y SteamStub
+-- Los juegos protegidos únicamente por SteamStub no requieren la configuración de `AppTicket`. OpenSteamTool puede reutilizar el ticket local de ConfigStore de Steam y falsificar el AppId solicitado a través de una vulnerabilidad de desbordamiento por cuatro (off-by-four ticket parsing vulnerability) en SteamDRMP, sin necesidad de inyectarse en el proceso del juego.
++- Los juegos protegidos únicamente por SteamStub no requieren la configuración de `AppTicket`. Neko puede reutilizar el ticket local de ConfigStore de Steam y falsificar el AppId solicitado a través de una vulnerabilidad de desbordamiento por cuatro (off-by-four ticket parsing vulnerability) en SteamDRMP, sin necesidad de inyectarse en el proceso del juego.
+ - Los juegos protegidos por Denuvo siguen requiriendo datos explícitos del ticket. En `HKEY_CURRENT_USER\Software\Valve\Steam\Apps\{AppId}`, tanto `AppTicket` como `ETicket` son valores `REG_BINARY`.
+ - Utiliza `setAppTicket(appid, "hex")` y `setETicket(appid, "hex")` en la configuración de Lua para escribir estos valores en el registro de forma automática.
+ - La verificación de Denuvo tiene una ventana de validez de 30 minutos. Cuando esta ventana expira, la autorización puede fallar con el código de error de Denuvo `88500005`; actualiza los datos del ticket antes de volver a intentarlo.
+-- Prioridad de AppTicket: los tickets explícitos tienen la prioridad más alta, incluyendo los tickets configurados por `setAppTicket` y los valores de `AppTicket` ya existentes en el registro. Si no hay ningún AppTicket explícito disponible, OpenSteamTool recurre a la ruta del ticket falsificado de ConfigStore local.
++- Prioridad de AppTicket: los tickets explícitos tienen la prioridad más alta, incluyendo los tickets configurados por `setAppTicket` y los valores de `AppTicket` ya existentes en el registro. Si no hay ningún AppTicket explícito disponible, Neko recurre a la ruta del ticket falsificado de ConfigStore local.
+ - Prioridad de SteamID: primero lee `SteamID` como `REG_SZ`(únicamente numérico); si no se encuentra, lo analiza a partir del `AppTicket` explícito.
+ 
+ ### Extracción de tickets con `extract_tickets`
+@@ -87,7 +86,7 @@ La herramienta `extract_tickets` vuelca las cadenas hexadecimales de `AppTicket`
+ ### Estadísticas y logros
+ - Activa las estadísticas y los logros para los juegos que no poseas.
+ - Utiliza `setStat(appid, "steamid")` para configurar de qué SteamID se deben extraer los datos de los logros.
+-- Si no hay ningún `setStat` configurado para una aplicación, OpenSteamTool consulta `https://stats.luastools.xyz/{appid}` cuando `[stats] enable_api = true` (valor predeterminado).
++- Si no hay ningún `setStat` configurado para una aplicación, Neko consulta `https://stats.opensteamtool.com/{appid}` cuando `[stats] enable_api = true` (valor predeterminado).
+ - Prioridad: `setStat` > API de estadísticas cuando está habilitada y devuelve un valor válido > SteamID predefinido `76561198028121353`.
+ 
+ ### Online Fix(Reparacion para habilitar el Online)
+@@ -98,7 +97,7 @@ La herramienta `extract_tickets` vuelca las cadenas hexadecimales de `AppTicket`
+ 
+ ## Uso
+ 1. Ejecuta `build.bat` desde la raíz del proyecto para compilarlo.
+-2. Copia los archivos generados `dwmapi.dll`, `xinput1_4.dll` y `OpenSteamTool.dll` al directorio raíz de Steam.
++2. Copia los archivos generados `dwmapi.dll`, `xinput1_4.dll` y `Neko.dll` al directorio raíz de Steam.
+ 3. Crea un directorio para Lua (por ejemplo, C:\steam\config\lua) y coloca allí tus scripts de Lua. La DLL los cargará y ejecutará automáticamente.
+ 4. Ejemplo de Lua:
+ ```lua
+@@ -124,7 +123,7 @@ setStat(1361510, "76561197960287930") -- utiliza los datos de logros del SteamID
+ Los nombres de todas las funciones **no distinguen entre mayúsculas y minúsculas**. `setAppTicket`, `setappticket`, `SetAppticket`, `SETAPPTICKET`, etc., son todas equivalentes. Lo mismo se aplica a cada función registrada (`addAppId`, `AddToken`, `SETManifestid`, etc.).
+ 
+ ### Configuración (opcional)
+-Cambia el nombre de `opensteamtool.example.toml` a `opensteamtool.toml` y colócalo en el directorio raíz de Steam (junto a `steam.exe`).
++Cambia el nombre de `Neko.example.toml` a `Neko.toml` y colócalo en el directorio raíz de Steam (junto a `steam.exe`).
+ Si no se encuentra ningún archivo de configuración, se utilizarán los valores predeterminados integrados; no se creará ninguno de forma automática.
+ El archivo se supervisa mientras Steam está en ejecución; los cambios válidos se recargan en caliente sin reiniciar Steam.
+ 
+@@ -134,8 +133,8 @@ El archivo se supervisa mientras Steam está en ejecución; los cambios válidos
+ level = "info"
+ 
+ [manifest]
+-# API ascendente para los códigos de solicitud de manifiestos de depósito. Opciones: "opensteamtool", "steamrun", "wudrm"
+-url = "opensteamtool"
++# API ascendente para los códigos de solicitud de manifiestos de depósito. Opciones: "neko", "steamrun", "wudrm"
++url = "neko"
+ 
+ # Tiempos de espera HTTP (timeouts) para las solicitudes de manifiestos (en milisegundos)
+ timeout_resolve_ms = 5000
+@@ -144,7 +143,7 @@ timeout_send_ms    = 10000
+ timeout_recv_ms    = 10000
+ 
+ [stats]
+-# Consulta https://stats.luastools.xyz/{appid} cuando no existe setStat en Lua.
++# Consulta https://stats.opensteamtool.com/{appid} cuando no existe setStat en Lua.
+ # Prioridad: setStat > API de estadísticas > SteamID predefinido.
+ enable_api = true
+ 
+@@ -157,7 +156,7 @@ paths = []
+ # Inyección opcional de DLL en procesos de juego. Cada entrada [[inject]] se carga
+ # cuando coinciden todas las condiciones que define.
+ # [[inject]]
+-# path = "OpenSteamToolHook.dll"      # un nombre simple se resuelve junto a steam.exe; una ruta absoluta se usa tal cual
++# path = "NekoHook.dll"      # un nombre simple se resuelve junto a steam.exe; una ruta absoluta se usa tal cual
+ # when_cmdline = "-my_special_hook"   # opcional: requiere esta subcadena en el comando de lanzamiento (por defecto: cualquiera)
+ # when_appids = [1361510]             # opcional: restringir a estos appids (por defecto: cualquiera)
+ # all_games = false                   # opcional: true inyecta en todos los juegos, false solo en juegos añadidos por Lua (por defecto: false)
+@@ -189,17 +188,17 @@ El entorno de ejecución (runtime) en C++ proporciona dos funciones auxiliares d
+ 
+ ### Compatibilidad con versiones de Steam
+ 
+-OpenSteamTool ya no incluye firmas de patrones de bytes (byte-pattern signatures) dentro de la DLL. En su lugar, en cada inicio calcula el hash SHA-256 de `steamclient64.dll` y `steamui.dll` en el disco, y busca un archivo de patrones coincidente desde el rastreador ascendente en ['OpenSteam001/steam-monitor'](https://github.com/OpenSteam001/steam-monitor) (extension `pattern`).
++Neko ya no incluye firmas de patrones de bytes (byte-pattern signatures) dentro de la DLL. En su lugar, en cada inicio calcula el hash SHA-256 de `steamclient64.dll` y `steamui.dll` en el disco, y busca un archivo de patrones coincidente desde el rastreador ascendente en ['OpenSteam001/steam-monitor'](https://github.com/OpenSteam001/steam-monitor) (extension `pattern`).
+ 
+ Orden de búsqueda (en cada inicio):
+ 
+ 1.**GitHub raw** — `https://raw.githubusercontent.com/OpenSteam001/steam-monitor/pattern/....` Fuente canónica.
+ 2.**jsDelivr CDN** — alternativa automática si GitHub raw no está disponible (conexión rechazada / tiempo de espera / error 5xx). No requiere configuración. Útil en regiones donde `raw.githubusercontent.com` está bloqueado pero jsDelivr es accesible (por ejemplo, China continental).
+-3.**Caché local** — `<Steam>\opensteamtool\pattern\<subdir>\<sha256>.toml`. Se utiliza **únicamente** cuando el servidor remoto no está disponible. La caché se sobrescribe tras cada consulta remota exitosa.
++3.**Caché local** — `<Steam>\Neko\pattern\<subdir>\<sha256>.toml`. Se utiliza **únicamente** cuando el servidor remoto no está disponible. La caché se sobrescribe tras cada consulta remota exitosa.
+ 
+ Se consulta al servidor remoto en cada inicio para que los usuarios obtengan automáticamente las nuevas publicaciones del proyecto principal (por ejemplo, si el bot añade una nueva firma o corrige una existente) sin tener que limpiar ninguna caché.
+ 
+-Si un paso devuelve un error **HTTP 404**, el bucle de espejos (mirrors) se detiene inmediatamente —todos los espejos sirven el mismo contenido, por lo que un 404 significa que el bot ascendente aún no ha publicado un archivo TOML para esa compilación específica de Steam—. En ese caso, el código recurre a la caché local si existe; de lo contrario, aparecerá una ventana emergente por única vez mostrando el nombre de la DLL no emparejada, su SHA-256, la ruta de caché esperada y la URL de origen. Solo se desactivarán los ganchos (hooks) vinculados a esa DLL; el resto de OpenSteamTool seguirá funcionando.
++Si un paso devuelve un error **HTTP 404**, el bucle de espejos (mirrors) se detiene inmediatamente —todos los espejos sirven el mismo contenido, por lo que un 404 significa que el bot ascendente aún no ha publicado un archivo TOML para esa compilación específica de Steam—. En ese caso, el código recurre a la caché local si existe; de lo contrario, aparecerá una ventana emergente por única vez mostrando el nombre de la DLL no emparejada, su SHA-256, la ruta de caché esperada y la URL de origen. Solo se desactivarán los ganchos (hooks) vinculados a esa DLL; el resto de Neko seguirá funcionando.
+ 
+ También puedes colocar manualmente un archivo TOML de patrones en el directorio de la caché si conoces la estructura para una compilación determinada; el nombre del archivo debe ser `<sha256>.toml`. La caché de reserva lo detectará la próxima vez que el servidor remoto sea inaccesible.
+ 
+@@ -219,7 +218,7 @@ url_template = "https://tu.servidor/{channel}/{component}/{sha256}.toml"
+ 
+ ### Registro de depuración
+ 
+-Las compilaciones de depuración (Debug) escriben archivos de registro independientes por módulo dentro de `<Steam>/opensteamtool/`:
++Las compilaciones de depuración (Debug) escriben archivos de registro independientes por módulo dentro de `<Steam>/Neko/`:
+ 
+ | Archivo | Fuente | Contenido |
+ |---------|--------|-----------|
+@@ -239,7 +238,7 @@ Las compilaciones de depuración (Debug) escriben archivos de registro independi
+ | `pipe.log`          | `LOG_PIPE_*` | Handshakes de pipe, inspección de procesos, autorización de Denuvo, inyección de bibliotecas |
+ | `platform.log`      | `LOG_PLATFORM_*` | Diagnósticos de utilidades de plataforma, incluidas operaciones sobre procesos remotos |
+ 
+-El nivel de registro se controla mediante `[log] level` en `opensteamtool.toml`.
++El nivel de registro se controla mediante `[log] level` en `Neko.toml`.
+ 
+ ## Compilación
+ 
+@@ -257,9 +256,9 @@ build.bat
+ ```
+ 
+ ### Archivos de salida
+-- Debug: `build/Debug/OpenSteamTool.dll`, `build/Debug/dwmapi.dll`, `build/Debug/xinput1_4.dll`
++- Debug: `build/Debug/Neko.dll`, `build/Debug/dwmapi.dll`, `build/Debug/xinput1_4.dll`
+ 
+-- Release: `build/Release/OpenSteamTool.dll`, `build/Release/dwmapi.dll`, `build/Release/xinput1_4.dll`
++- Release: `build/Release/Neko.dll`, `build/Release/dwmapi.dll`, `build/Release/xinput1_4.dll`
+ 
+ ## Descargo de responsabilidad
+ Este proyecto se proporciona únicamente con fines de investigación y educativos. Eres responsable de cumplir con las leyes locales, los términos de servicio de la plataforma y las licencias de software correspondientes.
+diff --git a/README_ZH.md b/README_ZH.md
+index adac993..c2e257b 100644
+--- a/README_ZH.md
++++ b/README_ZH.md
+@@ -1,7 +1,6 @@
+ <div align="center">
+-  <img src="docs/bst.png" width="100%" alt="BetterSteamTools logo">
+-
+-  <h1>BetterSteamTools - a fork of OpenSteamTools!</h1>
++  <h1>Neko</h1>
++  <!-- 基于 BetterSteamTools 和 OpenSteamTools。 -->
+ 
+   <p>
+     <strong>开源 Steam 解锁工具</strong>
+@@ -40,7 +39,7 @@
+ - 解锁任意数量未拥有的游戏
+ - 解锁未拥有游戏的所有 DLC
+ - 支持从 Lua 配置自动加载仓库（depot）解密密钥
+-- 支持通过 `opensteamtool` / `steamrun` / `wudrm` 上游 API 自动下载 manifest（默认为 `opensteamtool`），或通过自定义 Lua 端点（参见 [通过 Lua 获取 Manifest](#通过-lua-获取-manifest)）
++- 支持通过 `neko` / `steamrun` / `wudrm` 上游 API 自动下载 manifest（默认为 `neko`），或通过自定义 Lua 端点（参见 [通过 Lua 获取 Manifest](#通过-lua-获取-manifest)）
+ - 支持下载需要访问令牌的保护游戏或 DLC
+ - 支持绑定 manifest 以防止特定游戏被更新
+ 
+@@ -48,18 +47,18 @@
+ - 在任何监视目录中添加、修改、删除或覆盖 `.lua` 文件会自动触发重载。无需重启，无需切换离线/在线模式
+ 
+ ### 注入
+-- 通过 `opensteamtool.toml` 中的一个或多个 `[[inject]]` 条目添加可选的游戏进程 DLL 注入
++- 通过 `Neko.toml` 中的一个或多个 `[[inject]]` 条目添加可选的游戏进程 DLL 注入
+ - 每个条目设置 `path`（裸文件名相对于 `steam.exe` 解析，绝对路径按原样使用）和可选条件——`when_cmdline`（启动命令中必须包含的子字符串）、`when_appids`（限定特定 appid）和 `all_games`（`true` = 所有游戏，`false` = 仅 Lua 添加的游戏）。当某个 DLL 设置的*所有*条件都匹配时才注入；多个条目可以指向同一游戏，每个 DLL 最多注入一次
+ 
+ ### 家庭共享和远程同乐
+-- 绕过 Steam 家庭共享限制，适用于通过 Lua 中 `addappid` 添加到库的游戏。参与共享的 Steam 家庭中的所有账户都必须使用 OpenSteamTool 才能生效
++- 绕过 Steam 家庭共享限制，适用于通过 Lua 中 `addappid` 添加到库的游戏。参与共享的 Steam 家庭中的所有账户都必须使用 Neko 才能生效
+ 
+ ### 兼容 Denuvo 和 SteamStub 保护的游戏
+-- 仅 SteamStub 保护的游戏不需要配置 `AppTicket`。OpenSteamTool 可以重用 Steam 本地 ConfigStore 令牌，通过 SteamDRMP 令牌解析漏洞伪造请求的 AppId，无需注入游戏进程
+-- Denuvo 保护的游戏仍需要显式令牌数据。OpenSteamTool 通过平台凭据存储保存 `AppTicket` 和 `ETicket`
++- 仅 SteamStub 保护的游戏不需要配置 `AppTicket`。Neko 可以重用 Steam 本地 ConfigStore 令牌，通过 SteamDRMP 令牌解析漏洞伪造请求的 AppId，无需注入游戏进程
++- Denuvo 保护的游戏仍需要显式令牌数据。Neko 通过平台凭据存储保存 `AppTicket` 和 `ETicket`
+ - 在 Lua 配置中使用 `setAppTicket(appid, "hex")` 和 `setETicket(appid, "hex")` 自动将这些值写入平台凭据存储
+ - Denuvo 验证有 30 分钟有效窗口。过期后授权可能失败，显示 Denuvo 错误代码 `88500005`；重试前请刷新令牌数据
+-- AppTicket 优先级：显式令牌优先级最高，包括通过 `setAppTicket` 配置的令牌和已缓存的 `AppTicket` 凭据值。若无可用显式 AppTicket，OpenSteamTool 回退到伪造的本地 ConfigStore 令牌路径
++- AppTicket 优先级：显式令牌优先级最高，包括通过 `setAppTicket` 配置的令牌和已缓存的 `AppTicket` 凭据值。若无可用显式 AppTicket，Neko 回退到伪造的本地 ConfigStore 令牌路径
+ - SteamID 优先级：优先读取缓存的 `SteamID`；若缺失，则从显式 `AppTicket` 解析。在 Windows 上，凭据存储后端当前使用 `HKCU\Software\Valve\Steam\Apps\<AppId>`。Linux 后端尚未实现
+ 
+ #### 使用 `extract_tickets` 提取令牌
+@@ -92,7 +91,7 @@
+ ### 统计和成就
+ - 为未拥有的游戏启用统计和成就
+ - 使用 `setStat(appid, "steamid")` 配置拉取哪个 SteamID 的成就数据
+-- 如果某个应用未配置 `setStat`，当 `[stats] enable_api = true`（默认）时，OpenSteamTool 查询 `https://stats.luastools.xyz/{appid}`
++- 如果某个应用未配置 `setStat`，当 `[stats] enable_api = true`（默认）时，Neko 查询 `https://stats.opensteamtool.com/{appid}`
+ - 优先级：`setStat` > stats API（启用且有效时）> 硬编码预设 SteamID `76561198028121353`
+ 
+ ### 在线修复
+@@ -104,7 +103,7 @@
+ ## 使用方法
+ 
+ 1. 在项目根目录运行 `build.bat` 构建项目
+-2. 将生成的 `dwmapi.dll`、`xinput1_4.dll` 和 `OpenSteamTool.dll` 复制到 Steam 根目录
++2. 将生成的 `dwmapi.dll`、`xinput1_4.dll` 和 `Neko.dll` 复制到 Steam 根目录
+ 3. 创建 Lua 目录（例如 `C:\steam\config\lua`）并将 Lua 脚本放在那里。DLL 会自动加载并执行它们
+ 4. Lua 示例：
+ ```lua
+@@ -131,7 +130,7 @@ setStat(1361510, "76561197960287930") -- 使用指定 SteamID 的成就数据用
+ 
+ ### 配置（可选）
+ 
+-将 `opensteamtool.example.toml` 重命名为 `opensteamtool.toml` 并放在 Steam 根目录（与 `steam.exe` 同级）。
++将 `Neko.example.toml` 重命名为 `Neko.toml` 并放在 Steam 根目录（与 `steam.exe` 同级）。
+ 若找不到配置文件，则使用内置默认值——不会自动创建。
+ 文件在 Steam 运行时被监视；有效更改会热重载，无需重启 Steam。
+ 
+@@ -141,8 +140,8 @@ setStat(1361510, "76561197960287930") -- 使用指定 SteamID 的成就数据用
+ level = "info"
+ 
+ [manifest]
+-# 仓库 manifest 请求码的上游 API。选项："opensteamtool"、"steamrun"、"wudrm"
+-url = "opensteamtool"
++# 仓库 manifest 请求码的上游 API。选项："neko"、"steamrun"、"wudrm"
++url = "neko"
+ 
+ # manifest 请求的 HTTP 超时（毫秒）
+ timeout_resolve_ms = 5000
+@@ -151,7 +150,7 @@ timeout_send_ms    = 10000
+ timeout_recv_ms    = 10000
+ 
+ [stats]
+-# 当没有 Lua setStat 覆盖时查询 https://stats.luastools.xyz/{appid}
++# 当没有 Lua setStat 覆盖时查询 https://stats.opensteamtool.com/{appid}
+ # 优先级：setStat > stats API > 硬编码预设 SteamID
+ enable_api = true
+ 
+@@ -163,7 +162,7 @@ paths = []
+ 
+ # 可选的游戏进程 DLL 注入。当某个 [[inject]] 条目设置的所有条件都匹配时加载该 DLL。
+ # [[inject]]
+-# path = "OpenSteamToolHook.dll"      # 裸文件名相对于 steam.exe 解析；绝对路径按原样使用
++# path = "NekoHook.dll"      # 裸文件名相对于 steam.exe 解析；绝对路径按原样使用
+ # when_cmdline = "-my_special_hook"   # 可选：要求启动命令中包含此子字符串（默认：任意）
+ # when_appids = [1361510]             # 可选：仅限这些 appid（默认：任意）
+ # all_games = false                   # 可选：true 注入到所有游戏，false 仅注入到 Lua 添加的游戏（默认：false）
+@@ -196,17 +195,17 @@ C++ 运行时提供两个 Lua 辅助函数：
+ 
+ ### Steam 版本兼容性
+ 
+-OpenSteamTool 不再在 DLL 中内置字节模式签名。相反，每次启动时它计算磁盘上 `steamclient64.dll` 和 `steamui.dll` 的 SHA-256，并从上游跟踪器 [`OpenSteam001/steam-monitor`](https://github.com/OpenSteam001/steam-monitor)（`pattern` 分支）查找匹配的模式文件
++Neko 不再在 DLL 中内置字节模式签名。相反，每次启动时它计算磁盘上 `steamclient64.dll` 和 `steamui.dll` 的 SHA-256，并从上游跟踪器 [`OpenSteam001/steam-monitor`](https://github.com/OpenSteam001/steam-monitor)（`pattern` 分支）查找匹配的模式文件
+ 
+ 查找顺序（每次启动）：
+ 
+ 1. **GitHub raw** — `https://raw.githubusercontent.com/OpenSteam001/steam-monitor/pattern/...`。规范来源
+ 2. **jsDelivr CDN** — 如果 GitHub raw 无法访问（连接拒绝/超时/5xx）时自动回退。无需配置。在 `raw.githubusercontent.com` 被封锁但 jsDelivr 可访问的地区很有用（如中国大陆）
+-3. **本地缓存** — `<Steam>\opensteamtool\pattern\<subdir>\<sha256>.toml`。仅当远程不可达时使用。每次成功远程获取后覆盖缓存
++3. **本地缓存** — `<Steam>\Neko\pattern\<subdir>\<sha256>.toml`。仅当远程不可达时使用。每次成功远程获取后覆盖缓存
+ 
+ 每次启动都会咨询远程，因此用户自动获取上游重新发布（例如机器人添加新签名或修复现有签名），无需清除任何缓存
+ 
+-如果某步返回 **HTTP 404**，镜像循环立即停止——所有镜像提供相同内容，因此 404 意味着上游机器人尚未为此 Steam 版本发布 TOML。代码然后回退到本地缓存（如果存在）；否则出现一次性弹窗，显示不匹配的 DLL 名称、其 SHA-256、预期缓存路径和上游 URL。仅禁用与该 DLL 相关的钩子——OpenSteamTool 的其余部分继续工作
++如果某步返回 **HTTP 404**，镜像循环立即停止——所有镜像提供相同内容，因此 404 意味着上游机器人尚未为此 Steam 版本发布 TOML。代码然后回退到本地缓存（如果存在）；否则出现一次性弹窗，显示不匹配的 DLL 名称、其 SHA-256、预期缓存路径和上游 URL。仅禁用与该 DLL 相关的钩子——Neko 的其余部分继续工作
+ 
+ 如果你知道给定版本的布局，也可以手动将模式 TOML 放入缓存目录；文件名必须为 `<sha256>.toml`。下次远程不可达时缓存回退会拾取它
+ 
+@@ -226,7 +225,7 @@ url_template = "https://your.server/{channel}/{component}/{sha256}.toml"
+ 
+ ### 调试日志
+ 
+-调试构建在 `<Steam>/opensteamtool/` 下写入每个模块的日志文件：
++调试构建在 `<Steam>/Neko/` 下写入每个模块的日志文件：
+ 
+ | 文件 | 来源 | 内容 |
+ |------|------|------|
+@@ -246,7 +245,7 @@ url_template = "https://your.server/{channel}/{component}/{sha256}.toml"
+ | `pipe.log` | `LOG_PIPE_*` | 管道握手、进程检查、Denuvo 授权、库注入 |
+ | `platform.log` | `LOG_PLATFORM_*` | 平台助手诊断，包括远程进程操作 |
+ 
+-日志级别由 `opensteamtool.toml` 中的 `[log] level` 控制
++日志级别由 `Neko.toml` 中的 `[log] level` 控制
+ 
+ ## 构建
+ 
+@@ -264,8 +263,8 @@ build.bat
+ ```
+ 
+ ### 输出
+-- Debug：`build/Debug/OpenSteamTool.dll`、`build/Debug/dwmapi.dll`、`build/Debug/xinput1_4.dll`
+-- Release：`build/Release/OpenSteamTool.dll`、`build/Release/dwmapi.dll`、`build/Release/xinput1_4.dll`
++- Debug：`build/Debug/Neko.dll`、`build/Debug/dwmapi.dll`、`build/Debug/xinput1_4.dll`
++- Release：`build/Release/Neko.dll`、`build/Release/dwmapi.dll`、`build/Release/xinput1_4.dll`
+ 
+ ## 免责声明
+ 本项目仅供研究和教育目的使用。你负责遵守当地法律、平台服务条款和软件许可证。
+diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
+index b4ad0e8..265d4b2 100644
+--- a/src/CMakeLists.txt
++++ b/src/CMakeLists.txt
+@@ -4,7 +4,7 @@ project(OpenSteamTool VERSION 1.0.0 LANGUAGES C CXX)
+ set(CMAKE_CXX_STANDARD 20)
+ set(CMAKE_CXX_STANDARD_REQUIRED ON)
+ set(CMAKE_C_STANDARD 11)
+-set(OPENSTEAMTOOL_VERSION "${PROJECT_VERSION}" CACHE STRING "Version string embedded into OpenSteamTool.dll")
++set(OPENSTEAMTOOL_VERSION "${PROJECT_VERSION}" CACHE STRING "Version string embedded into Neko.dll")
+ 
+ # Allow CMAKE_MSVC_RUNTIME_LIBRARY to control runtime selection for all targets,
+ # including dependencies pulled in via FetchContent.
+@@ -156,6 +156,8 @@ add_library(OpenSteamTool SHARED
+     "${PROTO_GEN_DIR}/steam_messages.pb.cc"
+ )
+ 
++set_target_properties(OpenSteamTool PROPERTIES OUTPUT_NAME "Neko")
++
+ # Header search path — per-config include directory
+ target_include_directories(OpenSteamTool PRIVATE
+     ${CMAKE_CURRENT_SOURCE_DIR}
+@@ -201,9 +203,15 @@ endif()
+ #   cmake -B build -DOST_ENABLE_UPDATER=OFF
+ #
+ # This is a compile-time cut, not a runtime setting: with it off, the updater is
+-# not reachable at all and [update] enabled in opensteamtool.toml has no effect.
++# not reachable at all and [update] enabled in Neko.toml has no effect.
+ # Use it for private or pinned builds that must not be replaced under the user.
+ option(OST_ENABLE_UPDATER "Compile in the self-updater" ON)
++set(NEKO_UPDATE_REPOSITORY "sovmeyingo/Neko" CACHE STRING "GitHub repository publishing Neko updates")
++if(NOT NEKO_UPDATE_REPOSITORY MATCHES "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
++    message(FATAL_ERROR "NEKO_UPDATE_REPOSITORY must have the form owner/repository")
++endif()
++target_compile_definitions(OpenSteamTool PRIVATE
++    NEKO_UPDATE_REPOSITORY="${NEKO_UPDATE_REPOSITORY}")
+ if(OST_ENABLE_UPDATER)
+     target_compile_definitions(OpenSteamTool PRIVATE OST_ENABLE_UPDATER)
+ endif()
+diff --git a/src/Hook/Hooks_Manifest.cpp b/src/Hook/Hooks_Manifest.cpp
+index a0ddad1..fd50db7 100644
+--- a/src/Hook/Hooks_Manifest.cpp
++++ b/src/Hook/Hooks_Manifest.cpp
+@@ -104,7 +104,7 @@ namespace {
+                 ++shown;
+             }
+ 
+-            OSTPlatform::Dialog::ShowWarning("OpenSteamTool - manifests not ready", body);
++            OSTPlatform::Dialog::ShowWarning("Neko - manifests not ready", body);
+             return 0;
+         });
+     }
+diff --git a/src/Hook/Hooks_NetPacket.cpp b/src/Hook/Hooks_NetPacket.cpp
+index 3730ac0..979d036 100644
+--- a/src/Hook/Hooks_NetPacket.cpp
++++ b/src/Hook/Hooks_NetPacket.cpp
+@@ -271,6 +271,7 @@ namespace {
+     }
+ 
+     // ── Hash constants for target_job_name dispatch ─────────────
++    constexpr uint32 HASH_JOB_NotifyRunningApps = Fnv1aHash("FamilyGroupsClient.NotifyRunningApps#1");
+     constexpr uint32 HASH_JOB_GetUserStats = Fnv1aHash("Player.GetUserStats#1");
+     constexpr uint32 HASH_JOB_GetManifestRequestCode = Fnv1aHash("ContentServerDirectory.GetManifestRequestCode#1");
+     constexpr uint32 HASH_JOB_GetGameAchievements = Fnv1aHash("Player.GetGameAchievements#1");
+@@ -411,20 +412,17 @@ namespace Hooks_NetPacket_UserStats {
+         LOG_ACHIEVEMENT_DEBUG("Player::GetUserStats request: original body:\n{}", req.DebugString());
+         
+         AppId_t appId = req.appid();
++        bool hasShaSchema = req.has_sha_schema() && !req.sha_schema().empty();
++
++        if (hasShaSchema) {
++            LOG_ACHIEVEMENT_WARN("Player::GetUserStats request: sha_schema is present, do not spoof");
++            return false;
++        }
+         if (!LuaConfig::HasDepot(appId)) {
+             LOG_ACHIEVEMENT_WARN("Player::GetUserStats request: appid={} is not in addappid", appId);
+             return false;
+         }
+ 
+-        // Spoof the stat SteamID even when sha_schema is present, leaving the sha
+-        // on the request. The server then returns a fresh schema whenever its hash
+-        // differs from the client's, so lua games pick up newly added achievements
+-        // instead of keeping their first-downloaded schema forever. The reply is
+-        // handled as in the no-sha path (eresult=OK, stats stripped, schema kept),
+-        // so local stats are unaffected.
+-        if (req.has_sha_schema() && !req.sha_schema().empty())
+-            LOG_ACHIEVEMENT_DEBUG("Player::GetUserStats request: appid={} sha_schema present, spoofing anyway for schema refresh", appId);
+-
+         // Save jobid_source -> appid for the response handler
+         CMsgProtoBufHeader hdr;
+         if (hdr.ParseFromArray(pHdr, cbHdr) && hdr.has_jobid_source()) {
+@@ -949,6 +947,21 @@ namespace Hooks_NetPacket_OwnershipTicket {
+ } // namespace Hooks_NetPacket_OwnershipTicket
+ 
+ 
++// ════════════════════════════════════════════════════════════════
++//  Hooks_NetPacket_FamilySharing
++// ════════════════════════════════════════════════════════════════
++namespace Hooks_NetPacket_FamilySharing {
++
++    void ClearBody(const uint8*, uint32)
++    {
++        LOG_NETPACKET_DEBUG("Clearing family sharing message...");
++        g_cbNewBody = 0;
++        g_NeedReplaceBody = true;
++    }
++
++} // namespace Hooks_NetPacket_FamilySharing
++
++
+ // ════════════════════════════════════════════════════════════════
+ //  Hooks_NetPacket_Licenses
+ //
+@@ -2189,6 +2202,10 @@ namespace {
+ 
+         switch (Fnv1aHash(targetJobName)) {
+ 
++        case HASH_JOB_NotifyRunningApps:
++            Hooks_NetPacket_FamilySharing::ClearBody(pBody, cbBody);
++            return;
++
+         case HASH_JOB_GetUserStats:
+             Hooks_NetPacket_UserStats::HandleRecv_GetUserStatsResponse(pHdr, cbHdr, pBody, cbBody);
+             return;
+@@ -2246,6 +2263,10 @@ namespace {
+                 pBody, cbBody);
+             return;
+ 
++        case k_EMsgClientSharedLibraryStopPlaying:     // 9406
++            Hooks_NetPacket_FamilySharing::ClearBody(pBody, cbBody);
++            return;
++
+         case k_EMsgClientPersonaState:                 // 766
+             g_NeedReplaceBody = Hooks_NetPacket_RichPresence::HandleRecv(pBody, cbBody, pHdr, cbHdr);
+             return;
+diff --git a/src/OSTPlatform/Windows/Dialog.cpp b/src/OSTPlatform/Windows/Dialog.cpp
+index e98d6b2..c6b0c22 100644
+--- a/src/OSTPlatform/Windows/Dialog.cpp
++++ b/src/OSTPlatform/Windows/Dialog.cpp
+@@ -1,4 +1,5 @@
+ #include "include/Dialog.h"
++#include "include/Encoding.h"
+ 
+ #include <windows.h>
+ 
+@@ -13,7 +14,9 @@ void ShowInfo(std::string title, std::string message) {
+ }
+ 
+ bool ShowConfirm(std::string title, std::string message) {
+-    return MessageBoxA(nullptr, message.c_str(), title.c_str(),
++    const std::wstring wideTitle = Encoding::Utf8ToWide(title);
++    const std::wstring wideMessage = Encoding::Utf8ToWide(message);
++    return MessageBoxW(nullptr, wideMessage.c_str(), wideTitle.c_str(),
+                        MB_YESNO | MB_ICONINFORMATION | MB_TOPMOST) == IDYES;
+ }
+ 
+diff --git a/src/OSTPlatform/Windows/Http.cpp b/src/OSTPlatform/Windows/Http.cpp
+index 9a0c387..e634eb3 100644
+--- a/src/OSTPlatform/Windows/Http.cpp
++++ b/src/OSTPlatform/Windows/Http.cpp
+@@ -91,7 +91,7 @@ Result Execute(const wchar_t* method,
+ 
+     auto t0 = std::chrono::steady_clock::now();
+ 
+-    HINTERNET hSession = WinHttpOpen(L"OpenSteamTool/1.0",
++    HINTERNET hSession = WinHttpOpen(L"Neko/1.0",
+         WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
+         WINHTTP_NO_PROXY_NAME,
+         WINHTTP_NO_PROXY_BYPASS,
+diff --git a/src/Utils/Config/Config.cpp b/src/Utils/Config/Config.cpp
+index fc84b69..c59ce7a 100644
+--- a/src/Utils/Config/Config.cpp
++++ b/src/Utils/Config/Config.cpp
+@@ -11,7 +11,7 @@ namespace Config {
+ namespace {
+ 
+     struct Snapshot {
+-        std::string manifestProvider = "opensteamtool";
++        std::string manifestProvider = "neko";
+         ManifestTimeouts manifestTimeouts;
+         LogLevel logLevel = LogLevel::Debug;
+         std::string logDir;
+@@ -41,7 +41,7 @@ namespace {
+     Snapshot MakeDefaultSnapshot(const std::string& configPath) {
+         Snapshot snapshot;
+         std::filesystem::path p(configPath);
+-        snapshot.logDir = (p.parent_path() / "opensteamtool").string();
++        snapshot.logDir = (p.parent_path() / "Neko").string();
+         return snapshot;
+     }
+ 
+@@ -65,7 +65,7 @@ namespace {
+     void ApplyManifestProvider(const std::string& provider) {
+         if (!ManifestClient::SetProvider(provider)) {
+             LOG_WARN("Unknown manifest.url \"{}\", keeping default", provider);
+-            ManifestClient::SetProvider("opensteamtool");
++            ManifestClient::SetProvider("neko");
+         }
+     }
+ 
+diff --git a/src/Utils/Config/Config.h b/src/Utils/Config/Config.h
+index ad6fbe0..fd451a5 100644
+--- a/src/Utils/Config/Config.h
++++ b/src/Utils/Config/Config.h
+@@ -68,7 +68,7 @@ namespace Config {
+     // [log]
+     inline LogLevel logLevel = LogLevel::Debug;
+ 
+-    // derived from configPath: <steam>/opensteamtool/
++    // derived from configPath: <steam>/Neko/
+     inline std::string logDir;
+ 
+     // [lua]
+diff --git a/src/Utils/Config/ConfigFileWatcher.cpp b/src/Utils/Config/ConfigFileWatcher.cpp
+index 7058e78..b3f1938 100644
+--- a/src/Utils/Config/ConfigFileWatcher.cpp
++++ b/src/Utils/Config/ConfigFileWatcher.cpp
+@@ -66,7 +66,7 @@ void RestartLuaWatcher() {
+ 
+ // ── manifest probe request file ──────────────────────────────────────────────
+ // Diagnostic only. Drop depot ids, one per line, into manifest_probe.txt beside
+-// opensteamtool.toml and each is turned into an originated
++// Neko.toml and each is turned into an originated
+ // GetManifestRequestCode; results land in manifest.log.
+ //
+ // It shares this watcher rather than starting its own because the file sits in
+diff --git a/src/Utils/Logging/Log.cpp b/src/Utils/Logging/Log.cpp
+index 786e165..ca055ab 100644
+--- a/src/Utils/Logging/Log.cpp
++++ b/src/Utils/Logging/Log.cpp
+@@ -80,7 +80,7 @@ namespace Log {
+         try {
+             auto dir = OSTPlatform::DynamicLibrary::GetModuleDirectory(selfModule);
+             if (dir.empty()) dir = ".";
+-            auto logDir = (dir / "opensteamtool").string();
++            auto logDir = (dir / "Neko").string();
+             std::filesystem::create_directories(logDir);
+             Main = MakeLogger(logDir, "main");
+             Main->set_level(spdlog::level::trace);  // early boot: log everything
+diff --git a/src/Utils/Logging/Log.h b/src/Utils/Logging/Log.h
+index 81254b5..dd5c96d 100644
+--- a/src/Utils/Logging/Log.h
++++ b/src/Utils/Logging/Log.h
+@@ -6,8 +6,8 @@
+ // Log::InitModules()  — creates per-module loggers + applies Config level
+ //                       to all loggers. Call after Config::Load().
+ //
+-// General macros  →  <steam>/opensteamtool/main.log
+-// Module macros   →  <steam>/opensteamtool/<module>.log
++// General macros  →  <steam>/Neko/main.log
++// Module macros   →  <steam>/Neko/<module>.log
+ //
+ // Adding a new module logger:
+ //   1. Add  OST_MOD(NewMod, "newmod")  in LogModules.def.
+diff --git a/src/Utils/SteamMetadata/IPCLoader.cpp b/src/Utils/SteamMetadata/IPCLoader.cpp
+index c2c646f..83566ac 100644
+--- a/src/Utils/SteamMetadata/IPCLoader.cpp
++++ b/src/Utils/SteamMetadata/IPCLoader.cpp
+@@ -139,14 +139,14 @@ namespace {
+     static void ShowMissingPopup(const std::string& sha256)
+     {
+         SteamDiagnostics::ShowWarning(
+-            "OpenSteamTool - IPC spec missing",
+-            "OpenSteamTool: IPC spec file not found.\n\n"
++            "Neko - IPC spec missing",
++            "Neko: IPC spec file not found.\n\n"
+             "IPC interception is disabled for this session; pattern-based "
+             "hooks are unaffected.\n\n"
+             "You can:\n"
+             "  1. Wait for the next upstream publish and restart Steam.\n"
+             "  2. Drop a matching TOML at:\n"
+-            "       <Steam>\\opensteamtool\\ipc\\steamclient\\" + sha256 + ".toml\n"
++            "       <Steam>\\Neko\\ipc\\steamclient\\" + sha256 + ".toml\n"
+             "  3. Check upstream:\n"
+             "       https://github.com/madoiscool/steam-monitor/tree/ipc/steamclient");
+     }
+diff --git a/src/Utils/SteamMetadata/ManifestClient.cpp b/src/Utils/SteamMetadata/ManifestClient.cpp
+index d2d4e2d..4d75055 100644
+--- a/src/Utils/SteamMetadata/ManifestClient.cpp
++++ b/src/Utils/SteamMetadata/ManifestClient.cpp
+@@ -64,7 +64,7 @@ namespace ManifestClient {
+     // fallback for when the depot is genuinely unknown, and for the two
+     // third-party providers that expose no depot-aware route.
+     static constexpr Provider kProviders[] = {
+-        Make("opensteamtool", "https://manifest.opensteamtool.com/%llu",
++        Make("neko",          "https://manifest.opensteamtool.com/%llu",
+                               "https://manifest.opensteamtool.com/%u/%u/%llu",  ParsePlainUint),
+         Make("wudrm",         "http://gmrc.wudrm.com/manifest/%llu",
+                               nullptr,                                          ParsePlainUint),
+@@ -76,6 +76,7 @@ namespace ManifestClient {
+     static std::mutex      g_mutex;
+ 
+     bool SetProvider(std::string_view name) {
++        if (name == "opensteamtool") name = "neko";
+         std::lock_guard<std::mutex> lock(g_mutex);
+         for (const auto& p : kProviders)
+             if (p.name == name) { 
+diff --git a/src/Utils/SteamMetadata/Mirror.cpp b/src/Utils/SteamMetadata/Mirror.cpp
+index f2e44c4..09e3111 100644
+--- a/src/Utils/SteamMetadata/Mirror.cpp
++++ b/src/Utils/SteamMetadata/Mirror.cpp
+@@ -6,17 +6,18 @@
+ #include <iterator>
+ #include <string>
+ 
++#ifndef NEKO_UPDATE_REPOSITORY
++#define NEKO_UPDATE_REPOSITORY "sovmeyingo/Neko"
++#endif
++
+ namespace Mirror {
+ 
+ namespace {
+-    // Delivery mirror chain for the `updates` branch of madoiscool/BetterSteamTools.
+-    // Independent hosts (not just CDN copies of one repo), tried in order until one
+-    // returns HTTP 200. github-raw first for pointer freshness; jsDelivr and lua.tools
+-    // cover regions where raw.githubusercontent is throttled/blocked.
++    // Neko releases are rebuilt from upstream before being published here.
++    // Raw GitHub is tried before the CDN to prefer a fresh version pointer.
+     constexpr const char* kBaseTemplates[] = {
+-        "https://raw.githubusercontent.com/madoiscool/BetterSteamTools/updates/{path}",
+-        "https://cdn.jsdelivr.net/gh/madoiscool/BetterSteamTools@updates/{path}",
+-        "https://git.lua.tools/luatools/BetterSteamTools/raw/branch/updates/{path}",
++        "https://raw.githubusercontent.com/" NEKO_UPDATE_REPOSITORY "/updates/{path}",
++        "https://cdn.jsdelivr.net/gh/" NEKO_UPDATE_REPOSITORY "@updates/{path}",
+     };
+ 
+     std::string Expand(std::string tmpl, std::string_view relPath)
+diff --git a/src/Utils/SteamMetadata/PatternLoader.cpp b/src/Utils/SteamMetadata/PatternLoader.cpp
+index e4d39f8..83d1221 100644
+--- a/src/Utils/SteamMetadata/PatternLoader.cpp
++++ b/src/Utils/SteamMetadata/PatternLoader.cpp
+@@ -149,14 +149,14 @@ static void ShowDownloadFailedPopup(const std::string& dllName,
+                                     const std::string& component)
+ {
+     SteamDiagnostics::ShowWarning(
+-        "OpenSteamTool - Unsupported Steam Version",
+-        "OpenSteamTool: signature file not found for " + dllName + ".\n\n"
++        "Neko - Unsupported Steam Version",
++        "Neko: signature file not found for " + dllName + ".\n\n"
+         "Hooks that depend on " + dllName + " are disabled for this session; "
+         "other modules are unaffected.\n\n"
+         "You can:\n"
+         "  1. Wait for the next signature update, then restart Steam.\n"
+         "  2. Drop a matching TOML at:\n"
+-        "       <Steam>\\opensteamtool\\pattern\\" + component + "\\" + sha256 + ".toml\n"
++        "       <Steam>\\Neko\\pattern\\" + component + "\\" + sha256 + ".toml\n"
+         "  3. Check upstream:\n"
+         "       https://github.com/madoiscool/steam-monitor/tree/pattern/" + component + "\n"
+         "  4. Report the diagnostics below:\n"
+@@ -279,8 +279,8 @@ void ReportMissingFunctions()
+     g_missingFunctions.clear();
+ 
+     SteamDiagnostics::ShowWarning(
+-        "OpenSteamTool - Missing Signatures",
+-        "OpenSteamTool: some functions could not be located.\n\n"
++        "Neko - Missing Signatures",
++        "Neko: some functions could not be located.\n\n"
+         "The following functions were not found in the signature file:\n" +
+         list +
+         "\nHooks for these functions are disabled for this session.\n\n"
+diff --git a/src/Utils/SteamMetadata/RemoteToml.cpp b/src/Utils/SteamMetadata/RemoteToml.cpp
+index 336818f..3037fac 100644
+--- a/src/Utils/SteamMetadata/RemoteToml.cpp
++++ b/src/Utils/SteamMetadata/RemoteToml.cpp
+@@ -9,7 +9,6 @@
+ #include <fstream>
+ #include <iterator>
+ #include <string_view>
+-#include <thread>
+ #include <vector>
+ 
+ namespace RemoteToml {
+@@ -17,15 +16,10 @@ namespace RemoteToml {
+ namespace {
+     // Built-in mirror chain, tried in order. Used when [remote] url_template is unset.
+     // Mirrors are independent repos/hosts (not just CDN copies of one repo).
+-    // jsDelivr is first on purpose: raw.githubusercontent.com is unreachable on a
+-    // lot of networks (returns HTTP=0 and only times out after several seconds),
+-    // which used to stall startup ~8s per component before falling through — long
+-    // enough that Steam built depot configs before our hooks installed. Lead with
+-    // the CDN that actually answers and keep GitHub raw as a last resort.
+     constexpr const char* kDefaultTemplates[] = {
++        "https://raw.githubusercontent.com/madoiscool/steam-monitor/{channel}/{component}/{sha256}.toml",
+         "https://cdn.jsdelivr.net/gh/madoiscool/steam-monitor@{channel}/{component}/{sha256}.toml",
+         "https://git.lua.tools/luatools/steam-monitor/raw/branch/{channel}/{component}/{sha256}.toml",
+-        "https://raw.githubusercontent.com/madoiscool/steam-monitor/{channel}/{component}/{sha256}.toml",
+     };
+ 
+     static bool HasPlaceholder(std::string_view text, std::string_view placeholder)
+@@ -80,58 +74,6 @@ namespace {
+             LOG_WARN("RemoteToml: no valid remote.url_template entries; remote fetch disabled");
+         return out;
+     }
+-
+-    // Runs the mirror chain for one component and writes the on-disk cache on a
+-    // 200. Returns the HTTP result of the last attempt. Used both for the
+-    // synchronous (no-cache) fetch and the detached background refresh.
+-    static OSTPlatform::Http::Result TryMirrors(Request request,
+-                                                std::string sha256,
+-                                                std::filesystem::path cachePath)
+-    {
+-        const std::vector<std::string> urlTemplates = BuildUrlTemplates();
+-        OSTPlatform::Http::Result http;
+-        std::string lastUrl;
+-
+-        for (size_t i = 0; i < urlTemplates.size(); ++i) {
+-            lastUrl = ExpandTemplate(urlTemplates[i], request, sha256);
+-            LOG_INFO("RemoteToml({}/{}): downloading {}",
+-                     request.channel, request.component, lastUrl);
+-
+-            // Short resolve/connect timeouts so a dead mirror (e.g. GitHub raw on a
+-            // blocked network) fails in a couple of seconds instead of the long
+-            // WinHTTP default, letting the chain reach a working mirror quickly.
+-            http = OSTPlatform::Http::Execute(L"GET", lastUrl.c_str(),
+-                                              nullptr, 0, nullptr,
+-                                              /*timeoutResolve*/ 2500,
+-                                              /*timeoutConnect*/ 2500,
+-                                              /*timeoutSend*/    5000,
+-                                              /*timeoutRecv*/    5000);
+-
+-            if (http.ok && http.status == 200) break;
+-
+-            if (i + 1 < urlTemplates.size()) {
+-                LOG_WARN("RemoteToml({}/{}): mirror failed ({} ok={} HTTP={}), trying next",
+-                         request.channel, request.component, lastUrl, http.ok, http.status);
+-            } else {
+-                LOG_WARN("RemoteToml({}/{}): mirror failed ({} ok={} HTTP={}), no more mirrors",
+-                         request.channel, request.component, lastUrl, http.ok, http.status);
+-            }
+-        }
+-
+-        if (http.ok && http.status == 200 && !http.body.empty()) {
+-            std::ofstream ofs(cachePath, std::ios::binary);
+-            if (ofs) {
+-                ofs.write(http.body.data(),
+-                          static_cast<std::streamsize>(http.body.size()));
+-                LOG_INFO("RemoteToml({}/{}): cached to {}",
+-                         request.channel, request.component, cachePath.string());
+-            } else {
+-                LOG_WARN("RemoteToml({}/{}): could not open {} for writing",
+-                         request.channel, request.component, cachePath.string());
+-            }
+-        }
+-        return http;
+-    }
+ } // namespace
+ 
+ Result Fetch(const Request& request)
+@@ -155,7 +97,7 @@ Result Fetch(const Request& request)
+ 
+     // 2. Cache path & dir.
+     fs::path steamRoot = fs::path(request.dllPath).parent_path();
+-    fs::path cacheDir  = steamRoot / "opensteamtool" / request.channel / request.component;
++    fs::path cacheDir  = steamRoot / "Neko" / request.channel / request.component;
+     fs::path cachePath = cacheDir / (out.sha256 + ".toml");
+     const std::string cachePathText = cachePath.string();
+ 
+@@ -166,46 +108,91 @@ Result Fetch(const Request& request)
+                  request.channel, request.component, cacheDir.string(), mkdirEc.message());
+     }
+ 
+-    // 3. Cache-first. If a TOML for this exact DLL sha is already on disk, use it
+-    //    immediately so hooks install without waiting on the network, then refresh
+-    //    the cache in the background for next launch. The cache key IS the sha, so a
+-    //    cached file is always valid for the running client; a pattern re-published
+-    //    for the same sha reaches the user one launch later, which is acceptable.
+-    //    (This window used to cost ~8s/component on networks that can't reach the
+-    //    first mirror, long enough for Steam to build depot configs unhooked.)
+-    {
+-        std::error_code ec;
+-        if (fs::exists(cachePath, ec) && fs::file_size(cachePath, ec) > 0) {
+-            std::ifstream ifs(cachePath, std::ios::binary);
++    // 3. Try remote (mirror chain with early-out on 404).
++    const std::vector<std::string> urlTemplates = BuildUrlTemplates();
++    OSTPlatform::Http::Result http;
++    std::string lastUrl;
++
++    for (size_t i = 0; i < urlTemplates.size(); ++i) {
++        lastUrl = ExpandTemplate(urlTemplates[i], request, out.sha256);
++        LOG_INFO("RemoteToml({}/{}): downloading {}",
++                 request.channel, request.component, lastUrl);
++
++        http = OSTPlatform::Http::Execute(L"GET", lastUrl.c_str(),
++                                          nullptr, 0, nullptr);
++
++        if (http.ok && http.status == 200) break;
++
++        // Mirrors are independent repos with possibly different coverage, so a 404
++        // (or any non-200) on one does NOT imply the others lack the file — always
++        // fall through to the next mirror.
++        if (i + 1 < urlTemplates.size()) {
++            LOG_WARN("RemoteToml({}/{}): mirror failed ({} ok={} HTTP={}), trying next",
++                     request.channel, request.component, lastUrl, http.ok, http.status);
++        } else {
++            LOG_WARN("RemoteToml({}/{}): mirror failed ({} ok={} HTTP={}), no more mirrors",
++                     request.channel, request.component, lastUrl, http.ok, http.status);
++        }
++    }
++
++    // 4. Remote OK → write cache, return body.
++    if (http.ok && http.status == 200 && !http.body.empty()) {
++        std::ofstream ofs(cachePath, std::ios::binary);
++        if (ofs) {
++            ofs.write(http.body.data(),
++                      static_cast<std::streamsize>(http.body.size()));
++            LOG_INFO("RemoteToml({}/{}): cached to {}",
++                     request.channel, request.component, cachePathText);
++        } else {
++            LOG_WARN("RemoteToml({}/{}): could not open {} for writing",
++                     request.channel, request.component, cachePathText);
++        }
++        out.body = std::move(http.body);
++        out.ok = true;
++        return out;
++    }
++
++    // 5. Remote failed → fall back to whatever is cached for this exact SHA.
++    std::error_code cacheError;
++    if (!fs::exists(cachePath, cacheError)) {
++        const fs::path legacyCache = steamRoot / "opensteamtool" /
++            request.channel / request.component / (out.sha256 + ".toml");
++        if (fs::is_regular_file(legacyCache, cacheError)) {
++            fs::copy_file(legacyCache, cachePath, fs::copy_options::none, cacheError);
++            if (cacheError) {
++                LOG_WARN("Could not migrate cached metadata to Neko: {}", cacheError.message());
++                cachePath = legacyCache;
++            }
++        }
++    }
++    if (fs::exists(cachePath)) {
++        LOG_WARN("RemoteToml({}/{}): remote failed (last URL {} HTTP {}); "
++                 "falling back to local cache {}",
++                 request.channel, request.component,
++                 lastUrl.empty() ? "<none>" : lastUrl, http.status, cachePathText);
++
++        std::ifstream ifs(cachePath, std::ios::binary);
++        if (ifs) {
+             std::string buf((std::istreambuf_iterator<char>(ifs)),
+                              std::istreambuf_iterator<char>());
+-            if (ifs && !buf.empty()) {
++            if (!buf.empty()) {
+                 out.body = std::move(buf);
+                 out.ok = true;
+                 out.fromCache = true;
+-                LOG_INFO("RemoteToml({}/{}): served from cache {}, refreshing in background",
+-                         request.channel, request.component, cachePathText);
+-                // Detached refresh — args copied by value; the thread only does an
+-                // HTTP GET and a file write, so it is safe past init scope.
+-                std::thread(TryMirrors, request, out.sha256, cachePath).detach();
+                 return out;
+             }
+-            LOG_WARN("RemoteToml({}/{}): cache file unreadable/empty, fetching: {}",
++            LOG_WARN("RemoteToml({}/{}): cache file empty: {}",
++                     request.channel, request.component, cachePathText);
++        } else {
++            LOG_WARN("RemoteToml({}/{}): could not open cache file: {}",
+                      request.channel, request.component, cachePathText);
+         }
+     }
+ 
+-    // 4. No usable cache → fetch synchronously (also writes the cache on success).
+-    OSTPlatform::Http::Result http = TryMirrors(request, out.sha256, cachePath);
+-    if (http.ok && http.status == 200 && !http.body.empty()) {
+-        out.body = std::move(http.body);
+-        out.ok = true;
+-        return out;
+-    }
+-
+-    // 5. No cache and the fetch failed → degraded; caller handles popup.
+-    LOG_WARN("RemoteToml({}/{}): no source available (HTTP {})",
+-             request.channel, request.component, http.status);
++    // 6. Total failure — caller handles popup / degraded mode.
++    LOG_WARN("RemoteToml({}/{}): no source available (last URL: {} HTTP {})",
++             request.channel, request.component,
++             lastUrl.empty() ? "<none>" : lastUrl, http.status);
+     return out;
+ }
+ 
+diff --git a/src/Utils/SteamMetadata/StatsClient.cpp b/src/Utils/SteamMetadata/StatsClient.cpp
+index 66d1602..8080293 100644
+--- a/src/Utils/SteamMetadata/StatsClient.cpp
++++ b/src/Utils/SteamMetadata/StatsClient.cpp
+@@ -45,7 +45,7 @@ bool FetchStatSteamId(AppId_t appId, uint64_t* outSteamId) {
+     }
+ 
+     char url[128];
+-    std::snprintf(url, sizeof(url), "https://stats.luastools.xyz/%u", appId);
++    std::snprintf(url, sizeof(url), "https://stats.opensteamtool.com/%u", appId);
+ 
+     auto r = OSTPlatform::Http::Execute(L"GET", url);
+     LOG_ACHIEVEMENT_INFO("Stats SteamID API status={} appid={}", r.status, appId);
+diff --git a/src/Utils/SteamMetadata/SteamDiagnostics.cpp b/src/Utils/SteamMetadata/SteamDiagnostics.cpp
+index b7d31b7..60113d4 100644
+--- a/src/Utils/SteamMetadata/SteamDiagnostics.cpp
++++ b/src/Utils/SteamMetadata/SteamDiagnostics.cpp
+@@ -55,7 +55,7 @@ namespace {
+     {
+         message +=
+             "\n\nSteam diagnostics:\n"
+-            "  OpenSteamTool version: " + g_snapshot.openSteamToolVersion + "\n"
++            "  Neko version: " + g_snapshot.openSteamToolVersion + "\n"
+             "  Build ID:              " + g_snapshot.buildID + "\n"
+             "  steamclient64.dll SHA: " + g_snapshot.steamclientSha256 + "\n"
+             "  steamui.dll SHA:       " + g_snapshot.steamUISha256;
+diff --git a/src/Utils/Tokeer/TokeerBridge.cpp b/src/Utils/Tokeer/TokeerBridge.cpp
+index 311f99a..4973f02 100644
+--- a/src/Utils/Tokeer/TokeerBridge.cpp
++++ b/src/Utils/Tokeer/TokeerBridge.cpp
+@@ -109,7 +109,7 @@ namespace {
+         std::error_code ec;
+         const fs::path statsDir = SteamDirFromSelf() / "appcache" / "stats";
+         if (statsDir.empty() || !fs::exists(statsDir, ec)) {
+-            Warn("BetterSteamTools", "Could not locate Steam's stats cache.");
++            Warn("Neko", "Could not locate Steam's stats cache.");
+             return;
+         }
+ 
+@@ -153,7 +153,7 @@ void Redeem(const std::string& code) {
+         if (!JsonString(r.body, "reason", reason) && !JsonString(r.body, "error", reason))
+             reason = "Server error " + std::to_string(r.status);
+         LOG_WARN("TokeerBridge: redeem failed (HTTP {}): {}", r.status, reason);
+-        Warn("BetterSteamTools", "Redeem failed:\n\n" + reason);
++        Warn("Neko", "Redeem failed:\n\n" + reason);
+         return;
+     }
+ 
+@@ -167,14 +167,14 @@ void Redeem(const std::string& code) {
+     const auto etBytes = HexToBytes(etHex);
+     if (!appId || !appBytes || appBytes->empty() || !etBytes || etBytes->empty()) {
+         LOG_WARN("TokeerBridge: redeem returned an incomplete/invalid ticket");
+-        Warn("BetterSteamTools", "The server returned an incomplete ticket.");
++        Warn("Neko", "The server returned an incomplete ticket.");
+         return;
+     }
+ 
+     if (CS::WriteAppTicket(*appId, *appBytes) != CS::Status::Ok ||
+         CS::WriteETicket(*appId, *etBytes) != CS::Status::Ok) {
+         LOG_ERROR("TokeerBridge: failed to write tickets for app {}", *appId);
+-        Warn("BetterSteamTools", "Could not write the ticket to Steam.");
++        Warn("Neko", "Could not write the ticket to Steam.");
+         return;
+     }
+ 
+@@ -225,7 +225,7 @@ void HandleUri(const std::string& rawUrl) {
+ 
+     if (action == "redeem") {
+         if (!arg.empty()) Redeem(arg);
+-        else Warn("BetterSteamTools", "Missing code in link.");
++        else Warn("Neko", "Missing code in link.");
+     } else if (action == "refreshachievements") {
+         RefreshAchievements(arg.empty() ? "all" : arg);
+     } else {
+@@ -251,7 +251,7 @@ void RegisterUriScheme(const std::string& dllPath) {
+     };
+ 
+     const bool ok =
+-        writeKey("Software\\Classes\\bst", nullptr, "URL:BetterSteamTools") &&
++        writeKey("Software\\Classes\\bst", nullptr, "URL:Neko") &&
+         writeKey("Software\\Classes\\bst", "URL Protocol", "") &&
+         writeKey("Software\\Classes\\bst\\shell\\open\\command", nullptr, command);
+ 
+diff --git a/src/Utils/Tokeer/TokeerUri.cpp b/src/Utils/Tokeer/TokeerUri.cpp
+index 8cdcec6..5c1db03 100644
+--- a/src/Utils/Tokeer/TokeerUri.cpp
++++ b/src/Utils/Tokeer/TokeerUri.cpp
+@@ -1,6 +1,6 @@
+ // rundll32 entry point for the bst:// URI scheme. Registered by
+ // TokeerBridge::RegisterUriScheme as:
+-//   rundll32.exe "<steam>\OpenSteamTool.dll",TokeerUri "%1"
++//   rundll32.exe "<steam>\Neko.dll",TokeerUri "%1"
+ // When a browser opens a bst:// link, Windows launches this in a short-lived rundll32
+ // process (NOT steam.exe), so the DLL's injection init never runs here — the bridge does
+ // all its work standalone (registry credential store + HTTP + clipboard).
+diff --git a/src/Utils/Update/AppUpdater.cpp b/src/Utils/Update/AppUpdater.cpp
+index 72985a0..5e3879b 100644
+--- a/src/Utils/Update/AppUpdater.cpp
++++ b/src/Utils/Update/AppUpdater.cpp
+@@ -12,6 +12,7 @@
+ #include <windows.h>
+ 
+ #include <cctype>
++#include <cstring>
+ #include <filesystem>
+ #include <fstream>
+ #include <optional>
+@@ -23,11 +24,35 @@ namespace AppUpdater {
+ 
+ namespace {
+     // Bounds for a sane framework DLL payload — guards against a truncated or hostile
+-    // response being written to disk. OpenSteamTool.dll is ~1 MB.
++    // response being written to disk. Neko.dll is ~1 MB.
+     constexpr size_t kMinDllBytes = 200 * 1024;
+     constexpr size_t kMaxDllBytes = 8 * 1024 * 1024;
+ 
+-    constexpr const char* kPointerPath = "opensteamtool/latest.toml";
++    constexpr const char* kPointerPath = "neko/latest.toml";
++
++    // Exported so the compiler keeps the identity in every published Neko DLL.
++    constexpr std::string_view kBuildIdentity = "Neko.Update.Format.1";
++
++    bool IsNekoDll(std::string_view body)
++    {
++        if (body.size() < sizeof(IMAGE_NT_HEADERS64)) return false;
++        IMAGE_DOS_HEADER dos{};
++        std::memcpy(&dos, body.data(), sizeof(dos));
++        if (dos.e_magic != IMAGE_DOS_SIGNATURE || dos.e_lfanew < 0) return false;
++        const size_t peOffset = static_cast<size_t>(dos.e_lfanew);
++        if (peOffset > body.size() - sizeof(IMAGE_NT_HEADERS64)) return false;
++        IMAGE_NT_HEADERS64 pe{};
++        std::memcpy(&pe, body.data() + peOffset, sizeof(pe));
++        return pe.Signature == IMAGE_NT_SIGNATURE &&
++            pe.FileHeader.Machine == IMAGE_FILE_MACHINE_AMD64 &&
++            (pe.FileHeader.Characteristics & IMAGE_FILE_DLL) != 0 &&
++            pe.OptionalHeader.Magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC &&
++            body.find(kBuildIdentity) != std::string_view::npos &&
++            body.find("\\Neko.dll") != std::string_view::npos &&
++            body.find("\\Neko.toml") != std::string_view::npos &&
++            body.find("\\OpenSteamTool.dll") == std::string_view::npos &&
++            body.find("BetterSteamTools Updated!") == std::string_view::npos;
++    }
+ 
+     bool EqualsIgnoreCase(std::string_view a, std::string_view b)
+     {
+@@ -49,6 +74,11 @@ namespace {
+     }
+ } // namespace
+ 
++extern "C" __declspec(dllexport) const char* NekoUpdateIdentity()
++{
++    return kBuildIdentity.data();
++}
++
+ CheckResult Check()
+ {
+     CheckResult r;
+@@ -71,6 +101,13 @@ CheckResult Check()
+     const auto version = tbl["version"].value<std::string>();
+     const auto path    = tbl["path"].value<std::string>();
+     const auto sha     = tbl["sha256"].value<std::string>();
++    if (tbl["product"].value_or(std::string{}) != "Neko" ||
++        tbl["format"].value_or<int64_t>(0) != 1 || !path ||
++        !path->starts_with("neko/") || !path->ends_with("/Neko.dll") ||
++        path->find("..") != std::string::npos || path->find('\\') != std::string::npos) {
++        LOG_WARN("AppUpdater: update is not a supported Neko release");
++        return r;
++    }
+     if (!version || !path || !sha || version->empty() || path->empty() || sha->empty()) {
+         LOG_WARN("AppUpdater: latest.toml missing version/path/sha256");
+         return r;
+@@ -116,6 +153,11 @@ bool DownloadAndStage(const CheckResult& result, const std::string& selfDllPath)
+         return false;
+     }
+ 
++    if (!IsNekoDll(body)) {
++        LOG_WARN("AppUpdater: rejected DLL without compatible Neko identity and paths");
++        return false;
++    }
++
+     // The running DLL is write-locked while mapped, but NTFS allows renaming a loaded
+     // image, so move it aside and write the new bytes at the canonical path.
+     const std::string backup = selfDllPath + ".old";
+diff --git a/src/dllmain.cpp b/src/dllmain.cpp
+index 7110664..5cb92c6 100644
+--- a/src/dllmain.cpp
++++ b/src/dllmain.cpp
+@@ -31,7 +31,19 @@ bool InitializeSteamComponents()
+     sprintf_s(SteamUIPath,     kRuntimePathCapacity, "%s\\steamui.dll",        SteamInstallPath);
+     sprintf_s(DiversionPath,   kRuntimePathCapacity, "%s\\bin\\diversion.dll", SteamInstallPath);
+     sprintf_s(LuaDir,          kRuntimePathCapacity, "%s\\config\\stplug-in",  SteamInstallPath);
+-    sprintf_s(ConfigPath,      kRuntimePathCapacity, "%s\\opensteamtool.toml", SteamInstallPath);
++    sprintf_s(ConfigPath,      kRuntimePathCapacity, "%s\\Neko.toml", SteamInstallPath);
++    const std::filesystem::path legacyConfig =
++        std::filesystem::path(SteamInstallPath) / "opensteamtool.toml";
++    std::error_code configError;
++    if (!std::filesystem::exists(ConfigPath, configError) &&
++        std::filesystem::is_regular_file(legacyConfig, configError)) {
++        std::filesystem::copy_file(legacyConfig, ConfigPath,
++                                  std::filesystem::copy_options::none, configError);
++        if (configError) {
++            LOG_WARN("Could not migrate existing settings to Neko.toml: {}", configError.message());
++            sprintf_s(ConfigPath, kRuntimePathCapacity, "%s", legacyConfig.string().c_str());
++        }
++    }
+     
+     client_hModule = OSTPlatform::DynamicLibrary::Load(SteamclientPath);
+     if (!client_hModule) {
+@@ -54,7 +66,7 @@ bool InitializeSteamComponents()
+ // any of that from inside DllMain (loader lock).
+ static uint32_t InitThread(OSTPlatform::DynamicLibrary::ModuleHandle selfModule) {
+     Log::Init(selfModule);
+-    LOG_INFO("OpenSteamTool init thread started");
++    LOG_INFO("Neko init thread started");
+ 
+     if (!InitializeSteamComponents()) {
+         LOG_ERROR("InitializeSteamComponents failed");
+@@ -101,7 +113,7 @@ static uint32_t InitThread(OSTPlatform::DynamicLibrary::ModuleHandle selfModule)
+ 
+     // Register the bst:// URI scheme so the website can drive code redemption via this
+     // DLL (rundll32 handler). HKCU, no admin; idempotent.
+-    TokeerBridge::RegisterUriScheme(std::string(SteamInstallPath) + "\\OpenSteamTool.dll");
++    TokeerBridge::RegisterUriScheme(std::string(SteamInstallPath) + "\\Neko.dll");
+ 
+     // Optional self-update check. Runs on its own detached thread so the network
+     // round-trip never delays hook installation; a staged DLL applies next launch.
+@@ -113,7 +125,7 @@ static uint32_t InitThread(OSTPlatform::DynamicLibrary::ModuleHandle selfModule)
+ #ifdef OST_ENABLE_UPDATER
+     if (Config::GetUpdateEnabled()) {
+         OSTPlatform::Thread::StartDetached([] () -> uint32_t {
+-            const std::string self = std::string(SteamInstallPath) + "\\OpenSteamTool.dll";
++            const std::string self = std::string(SteamInstallPath) + "\\Neko.dll";
+             AppUpdater::CleanupStagedBackup(self);
+ 
+             const AppUpdater::CheckResult upd = AppUpdater::Check();
+@@ -121,9 +133,9 @@ static uint32_t InitThread(OSTPlatform::DynamicLibrary::ModuleHandle selfModule)
+             if (!AppUpdater::DownloadAndStage(upd, self)) return 0;
+ 
+             const bool restart = OSTPlatform::Dialog::ShowConfirm(
+-                "BetterSteamTools Updated!",
++                "Neko DLL g\xC3\xBCncellemesi var",
+                 upd.oldVersion + " -> " + upd.newVersion +
+-                "\n\nRestart Steam now to apply?");
++                "\n\nNeko DLL g\xC3\xBCncellemesi indirildi. Uygulamak i\xC3\xA7in Steam yeniden ba\xC5\x9Flat\xC4\xB1ls\xC4\xB1n m\xC4\xB1?");
+             if (restart) AppUpdater::RestartSteam();
+             return 0;
+         });
+@@ -132,7 +144,7 @@ static uint32_t InitThread(OSTPlatform::DynamicLibrary::ModuleHandle selfModule)
+     LOG_INFO("Self-updater not compiled in (OST_ENABLE_UPDATER=OFF)");
+ #endif
+ 
+-    LOG_INFO("OpenSteamTool init complete");
++    LOG_INFO("Neko init complete");
+     return 0;
+ }
+ 
+diff --git a/src/dwmapi/dwmapi.cpp b/src/dwmapi/dwmapi.cpp
+index 1594861..bb92a9b 100644
+--- a/src/dwmapi/dwmapi.cpp
++++ b/src/dwmapi/dwmapi.cpp
+@@ -109,7 +109,7 @@
+ #pragma comment(linker, "/EXPORT:#187=DWMAPI.#187,@187,NONAME")
+ 
+ // Only inject when the host process is steam.exe (case-insensitive).
+-// LoadLibraryA itself guarantees that OpenSteamTool.dll's DllMain
++// LoadLibraryA itself guarantees that Neko.dll's DllMain
+ // runs at most once per process, so multiple hijack DLLs can safely
+ // call this without additional synchronisation.
+ BOOL OpenSteamToolLoad()
+@@ -122,7 +122,7 @@ BOOL OpenSteamToolLoad()
+         if (_stricmp(exeName, "steam.exe") != 0)
+             return TRUE;   // not Steam — let the proxy load, but don't inject
+     }
+-    return LoadLibraryA("OpenSteamTool.dll") != NULL;
++    return LoadLibraryA("Neko.dll") != NULL;
+ }
+ 
+ 
+diff --git a/src/xinput1_4/xinput1_4.cpp b/src/xinput1_4/xinput1_4.cpp
+index 1cb6e34..73fca47 100644
+--- a/src/xinput1_4/xinput1_4.cpp
++++ b/src/xinput1_4/xinput1_4.cpp
+@@ -127,7 +127,7 @@ BOOL OpenSteamToolLoad() {
+         exeName = exeName ? exeName + 1 : exePath;
+         if (_stricmp(exeName, "steam.exe") != 0) return TRUE;
+     }
+-    return LoadLibraryA("OpenSteamTool.dll") != NULL;
++    return LoadLibraryA("Neko.dll") != NULL;
+ }
+ 
+ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, PVOID pvReserved) {
