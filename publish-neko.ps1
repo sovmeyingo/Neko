@@ -131,7 +131,18 @@ if ($LASTEXITCODE -eq 0) {
 }
 $releaseDirectory = Join-Path $publish "neko/$version"
 New-Item -ItemType Directory -Path $releaseDirectory -Force | Out-Null
-Copy-Item -LiteralPath "$build/Release/Neko.dll" -Destination (Join-Path $releaseDirectory 'Neko.dll')
+$runtimeFiles = @()
+foreach ($name in @('Neko.dll', 'dwmapi.dll', 'xinput1_4.dll', 'Neko.toml', 'Neko.example.toml', 'LICENSE')) {
+    $file = Join-Path $package $name
+    Copy-Item -LiteralPath $file -Destination (Join-Path $releaseDirectory $name)
+    $runtimeFiles += [ordered]@{
+        name = $name
+        bytes = (Get-Item -LiteralPath $file).Length
+        sha256 = (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLower()
+    }
+}
+[ordered]@{ product = 'Neko'; version = $version; files = $runtimeFiles } |
+    ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $releaseDirectory 'runtime-files.json') -Encoding utf8
 $hash = (Get-FileHash -LiteralPath "$build/Release/Neko.dll" -Algorithm SHA256).Hash.ToLower()
 @"
 product = "Neko"
