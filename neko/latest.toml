@@ -1,7 +1,7 @@
 product = "Neko"
 format = 1
-version = "v1.0.9-neko.9c6eeb1730ef"
-path = "neko/v1.0.9-neko.9c6eeb1730ef/Neko.dll"
-sha256 = "32c78be1263fbf71a01e6058b5bf989f7ace326ef62c96b201f5a9b7bf4ca06d"
+version = "v1.0.9-neko.a282f824d921"
+path = "neko/v1.0.9-neko.a282f824d921/Neko.dll"
+sha256 = "25777a51faf2d6d3cf7f4d01585a01b7b4233d81e65a5429fe41665fe810c745"
 upstream_version = "v1.0.9"
 upstream_commit = "6c4ed99a15e8e5719f32bc1ee828d0a6817d541a"

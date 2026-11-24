@@ -1,0 +1,36 @@
+{
+  "product": "Neko",
+  "version": "v1.0.9-neko.a282f824d921",
+  "files": [
+    {
+      "name": "Neko.dll",
+      "bytes": 1735168,
+      "sha256": "25777a51faf2d6d3cf7f4d01585a01b7b4233d81e65a5429fe41665fe810c745"
+    },
+    {
+      "name": "dwmapi.dll",
+      "bytes": 108032,
+      "sha256": "01037bb12ccb9dbfbd8a6f63b1990707bb656d580a1d0928193c39b00a44ed9a"
+    },
+    {
+      "name": "xinput1_4.dll",
+      "bytes": 121344,
+      "sha256": "6ec9fa3758c3638255a177753f632b9479f8cfbb78d10f908b52777ab471c3b8"
+    },
+    {
+      "name": "Neko.toml",
+      "bytes": 6556,
+      "sha256": "5ceb5be4926c9f477d04ab1345e48aa00f578b0764a392d53fd5396ba2f9f8bd"
+    },
+    {
+      "name": "Neko.example.toml",
+      "bytes": 6556,
+      "sha256": "5ceb5be4926c9f477d04ab1345e48aa00f578b0764a392d53fd5396ba2f9f8bd"
+    },
+    {
+      "name": "LICENSE",
+      "bytes": 35149,
+      "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+    }
+  ]
+}
