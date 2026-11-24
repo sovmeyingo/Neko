@@ -1,0 +1,7 @@
+product = "Neko"
+format = 1
+version = "v1.0.9-neko.9c6eeb1730ef"
+path = "neko/v1.0.9-neko.9c6eeb1730ef/Neko.dll"
+sha256 = "32c78be1263fbf71a01e6058b5bf989f7ace326ef62c96b201f5a9b7bf4ca06d"
+upstream_version = "v1.0.9"
+upstream_commit = "6c4ed99a15e8e5719f32bc1ee828d0a6817d541a"
