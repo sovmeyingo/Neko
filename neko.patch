@@ -1283,7 +1283,7 @@ index 8cdcec6..5c1db03 100644
  // process (NOT steam.exe), so the DLL's injection init never runs here — the bridge does
  // all its work standalone (registry credential store + HTTP + clipboard).
 diff --git a/src/Utils/Update/AppUpdater.cpp b/src/Utils/Update/AppUpdater.cpp
-index 72985a0..5e3879b 100644
+index 72985a0..c8578a4 100644
 --- a/src/Utils/Update/AppUpdater.cpp
 +++ b/src/Utils/Update/AppUpdater.cpp
 @@ -12,6 +12,7 @@
@@ -1294,7 +1294,7 @@ index 72985a0..5e3879b 100644
  #include <filesystem>
  #include <fstream>
  #include <optional>
-@@ -23,11 +24,35 @@ namespace AppUpdater {
+@@ -23,11 +24,33 @@ namespace AppUpdater {
  
  namespace {
      // Bounds for a sane framework DLL payload — guards against a truncated or hostile
@@ -1325,14 +1325,12 @@ index 72985a0..5e3879b 100644
 +            pe.OptionalHeader.Magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC &&
 +            body.find(kBuildIdentity) != std::string_view::npos &&
 +            body.find("\\Neko.dll") != std::string_view::npos &&
-+            body.find("\\Neko.toml") != std::string_view::npos &&
-+            body.find("\\OpenSteamTool.dll") == std::string_view::npos &&
-+            body.find("BetterSteamTools Updated!") == std::string_view::npos;
++            body.find("\\Neko.toml") != std::string_view::npos;
 +    }
  
      bool EqualsIgnoreCase(std::string_view a, std::string_view b)
      {
-@@ -49,6 +74,11 @@ namespace {
+@@ -49,6 +72,11 @@ namespace {
      }
  } // namespace
  
@@ -1344,7 +1342,7 @@ index 72985a0..5e3879b 100644
  CheckResult Check()
  {
      CheckResult r;
-@@ -71,6 +101,13 @@ CheckResult Check()
+@@ -71,6 +99,13 @@ CheckResult Check()
      const auto version = tbl["version"].value<std::string>();
      const auto path    = tbl["path"].value<std::string>();
      const auto sha     = tbl["sha256"].value<std::string>();
@@ -1358,7 +1356,7 @@ index 72985a0..5e3879b 100644
      if (!version || !path || !sha || version->empty() || path->empty() || sha->empty()) {
          LOG_WARN("AppUpdater: latest.toml missing version/path/sha256");
          return r;
-@@ -116,6 +153,11 @@ bool DownloadAndStage(const CheckResult& result, const std::string& selfDllPath)
+@@ -116,6 +151,11 @@ bool DownloadAndStage(const CheckResult& result, const std::string& selfDllPath)
          return false;
      }
  
